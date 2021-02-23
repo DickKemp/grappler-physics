@@ -7,10 +7,12 @@ module Main exposing (main)
 --import Html.Events exposing (onClick)
 
 import Browser
-import Html exposing (Html, div)
+import Html exposing (Html, div, input)
 import Svg exposing (..)
 import Svg.Attributes exposing (fill, height, points, rx, ry, stroke, transform, viewBox, width, x, y)
-
+import Html.Attributes as Attrs exposing (type_, value)
+import Html.Events exposing (onInput)
+import Maybe
 
 main : Program () Model Msg
 main =
@@ -65,7 +67,7 @@ type alias Model =
 
 
 type Msg
-    = BarHeight Float
+    = Angle String
 
 
 type alias Point =
@@ -82,10 +84,37 @@ type alias BarGeometry =
     , handlePoint : Point
     }
 
+shiftPoint : Point -> Point -> (Float -> Float -> Float) -> Point
+shiftPoint point delta op =
+    let
+        x = Tuple.first point
+        y = Tuple.second point
+        dx = Tuple.first delta
+        dy = Tuple.second delta
+    in
+        Tuple.pair  (op x dx) (op y dy)
+
+shiftPointDown : Point -> Point -> Point
+shiftPointDown point delta =
+    shiftPoint point delta (-)
+
+shiftPointUp : Point -> Point -> Point
+shiftPointUp point delta =
+    shiftPoint point delta (+)
+
+rotatePoint : Float -> Point -> Point -> Point
+rotatePoint angle origin pt =
+    let
+        polarPoint : Point
+        polarPoint = toPolar (shiftPointDown pt origin)
+
+        rotatedPoint = ((Tuple.first polarPoint), ((Tuple.second polarPoint) + (degrees angle)))
+    in
+        shiftPointUp (fromPolar rotatedPoint) origin
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model barLength barWeight 0.0 45.0 (barLength - (barLength / 8)), Cmd.none )
+    ( Model barLength barWeight 0.0 0.0 (barLength - (barLength / 8)), Cmd.none )
 
 
 calculateBarGeometry : Model -> BarGeometry
@@ -96,18 +125,29 @@ calculateBarGeometry model =
 
         fy =
             Tuple.second fulcrum
-    in
-    BarGeometry
-        [ ( fx, fy )
-        , ( fx, fy + barWidth )
-        , ( fx + barLength, fy + barWidth )
-        , ( fx + barLength, fy )
-        , ( fx + barLength, fy - barWidth )
-        , ( fx, fy - barWidth )
-        ]
-        ( fx + (barLength / 2), fy )
-        ( fx + barLength, fy )
 
+        barGeo =  
+            BarGeometry
+            [ ( fx, fy )
+            , ( fx, fy + barWidth )
+            , ( fx + barLength, fy + barWidth )
+            , ( fx + barLength, fy )
+            , ( fx + barLength, fy - barWidth )
+            , ( fx, fy - barWidth )
+            ]
+            ( fx + (barLength / 2), fy )
+            ( fx + barLength, fy )
+    in
+        
+        rotateBar model.barAngle fulcrum barGeo
+
+
+rotateBar : Float -> Point -> BarGeometry -> BarGeometry
+rotateBar angle origin barGeo =
+    BarGeometry
+        (List.map (rotatePoint angle origin) barGeo.shape)
+        (rotatePoint angle origin barGeo.centerOfGravity)
+        (rotatePoint angle origin barGeo.handlePoint)
 
 mapPointToSvgCoordinates : Point -> Point
 mapPointToSvgCoordinates point =
@@ -130,7 +170,11 @@ mapToSvgCoordinates barGeo =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    ( model, Cmd.none )
+    case msg of
+    Angle angle ->
+        ( { model | barAngle =  Maybe.withDefault 10.0 (String.toFloat angle) } , Cmd.none )
+    -- _ ->
+    --    ( model, Cmd.none )
 
 
 
@@ -155,6 +199,7 @@ path2svgPath path =
 
 -- VIEW
 
+
 view : Model -> Html Msg
 view model =
     let
@@ -172,4 +217,14 @@ view model =
             , viewBox "0 0 viewWidth viewHeight"
             ]
             [ polygon [ fill "None", stroke "black", points svgpath ] [] ]
+        ,
+         input
+            [ type_ "range"
+            , Attrs.min "0"
+            , Attrs.max "90"
+            , value <| String.fromFloat model.barAngle
+            , onInput Angle
+            ]
+            []
+        , text <| String.fromFloat model.barAngle
         ]
