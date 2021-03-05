@@ -5,13 +5,20 @@ module Main exposing (main, viewHeight)
 --import Html exposing (..)
 --import Html.Attributes exposing (..)
 --import Html.Events exposing (onClick)
--- import Maybe
 
 import Browser
 import Dict
 import Html exposing (Html, br, div, fieldset, input, label)
 import Html.Attributes as Attrs exposing (checked, placeholder, type_, value)
 import Html.Events exposing (onClick, onInput)
+import Element.Background as Background
+import Element.Border as Border
+import Element.Font as Font
+import Element as El exposing (Element, alignTop, alignLeft, alignBottom, alignRight, 
+    centerY, centerX, column, el, fill, fillPortion, height, padding, px, rgb255, rgba255, row, spacing, text, width)
+
+import Element.Input as Input
+
 import Round exposing (round)
 import Svg exposing (..)
 import Svg.Attributes
@@ -45,11 +52,12 @@ import Svg.Attributes
         , y2
         )
 
+-- import Browser.Dom exposing (Element)
 
-main : Program () Model Msg
+import BoundedNumericValue exposing (..)
+main : Program () Model (Msg Bool)
 main =
-    Browser.element { init = init, subscriptions = subscriptions, update = update, view = view }
-
+    Browser.element { init = init, subscriptions=subscriptions, update = update, view = view }
 
 
 -- MODEL
@@ -90,7 +98,7 @@ barWeight =
 
 fulcrum : Point
 fulcrum =
-    ( 50, 50 )
+    ( 50, 100 )
 
 
 forceToLengthFactor : Float
@@ -104,7 +112,8 @@ type alias Model =
     , extraWeight : Float
     , barAngle : Float
     , extraWeightDistanceFromFulcrum : Float
-    , displayOptions : Dict.Dict DisplayOptions Bool
+    , showNormalForceVector: Bool
+    , showGravityForceVector: Bool
     , viewHeight : Float
     , viewWidth : Float
     , xPad : Float
@@ -135,32 +144,16 @@ showLabels =
     "showLabels"
 
 
-type alias DisplayOptions =
-    String
 
-
-type Msg
-    = Angle String
-    | ToggleDisplayOptions DisplayOptions
+type Msg m
+    = Angle Float
+    | AngleStr String
+    | NormalForceOptionChanged Bool
+    | GravityForceOptionChanged Bool
     | ForceToLenFactorChanged String
     | BarLengthChanged String
     | BarWeightChanged String
     | ExtraWeightChanged String
-
-
-toggle : comparable -> Dict.Dict comparable Bool -> Dict.Dict comparable Bool
-toggle key dict =
-    Dict.update key
-        (\oldValue ->
-            case oldValue of
-                Just value ->
-                    Just <| not value
-
-                Nothing ->
-                    Nothing
-        )
-        dict
-
 
 type alias Point =
     ( Float, Float )
@@ -214,18 +207,9 @@ rotatePoint angle origin pt =
     shiftPointUp (fromPolar rotatedPoint) origin
 
 
-init : () -> ( Model, Cmd Msg )
+init : () -> ( Model, Cmd (Msg m) )
 init _ =
-    let
-        displayOptions =
-            Dict.fromList
-                [ ( showCoGForceVector, False )
-                , ( showCogNormalForceVector, False )
-                , ( showHandleGravityForceVector, False )
-                , ( showHandleNormalForceVector, False )
-                , ( showLabels, False )
-                ]
-    in
+
     ( Model barLength
         barWeight
         -- extra weight added to bar
@@ -234,7 +218,8 @@ init _ =
         0.0
         -- extraWeightDistanceFromFulcrum
         (barLength - (barLength / 8))
-        displayOptions
+        False
+        True
         viewHeight
         viewWidth
         xPad
@@ -456,23 +441,30 @@ mapToSvgCoordinates barGeo =
 -- UPDATE
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : (Msg Bool) -> Model -> ( Model, Cmd (Msg Bool) )
 update msg model =
     case msg of
         Angle angle ->
+            ( { model | barAngle = Maybe.withDefault 10.0 (Just angle) }, Cmd.none )
+
+        AngleStr angle ->
             ( { model | barAngle = Maybe.withDefault 10.0 (String.toFloat angle) }, Cmd.none )
 
-        ToggleDisplayOptions options ->
-            ( { model | displayOptions = toggle options model.displayOptions }, Cmd.none )
+        BarWeightChanged weight ->
+            ( { model | barWeight = Maybe.withDefault 45.0 (String.toFloat weight) }, Cmd.none )
+
+        ExtraWeightChanged extraWeight_ ->
+            ( { model | extraWeight = Maybe.withDefault 0.0 (String.toFloat extraWeight_) }, Cmd.none )
+
+        NormalForceOptionChanged b ->
+            ( { model | showNormalForceVector = b}, Cmd.none )
+
+        GravityForceOptionChanged b ->
+            ( { model | showGravityForceVector = b}, Cmd.none )
 
         BarLengthChanged lengthStr ->
             ( { model | barLength = stringToFloat lengthStr }, Cmd.none )
 
-        BarWeightChanged weightStr ->
-            ( { model | barWeight = stringToFloat weightStr }, Cmd.none )
-
-        ExtraWeightChanged extraWeightStr ->
-            ( { model | extraWeight = stringToFloat extraWeightStr }, Cmd.none )
 
         ForceToLenFactorChanged factorStr ->
             ( { model | forceToLengthFactor = stringToFloat factorStr }, Cmd.none )
@@ -491,7 +483,7 @@ stringToFloat strval =
             0.0
 
 
-subscriptions : Model -> Sub Msg
+subscriptions : Model -> Sub (Msg m)
 subscriptions _ =
     Sub.none
 
@@ -522,138 +514,228 @@ boolToString boolean =
         Nothing ->
             "unknown"
 
-
-optionCheckBox option model =
-    div
-        []
-        [ input
-            [ type_ "checkbox"
-            , checked <| Maybe.withDefault False (Dict.get option model.displayOptions)
-            , onClick <| ToggleDisplayOptions option
-            ]
-            []
-        , text <| " " ++ option 
-        -- , text <| boolToString <| Dict.get option model.displayOptions
-        ]
-
-
-isOptionSet option model =
-    let
-        result =
-            Dict.get option model.displayOptions
-    in
-    case result of
-        Just val ->
-            val
-
-        Nothing ->
-            False
-
-
-view : Model -> Html Msg
 view model =
     let
         barGeo : BarGeometry
         barGeo =
             mapToSvgCoordinates (calculateBarGeometry model)
     in
-    div
-        []
-        [ input
+
+        El.layout [ El.width El.fill, El.height El.fill, padding 5, spacing 5 ]
+        --colStuff
+        (c1 model)
+
+
+c1 model =
+    column [ bCol 1, El.width El.fill, El.height El.fill , padding 5, spacing 5]
+        [ r1_c1 model, r2_c1 model]
+
+
+r1_c1 model =
+    row [ bCol 2, El.width El.fill, El.height (fillPortion 10)  , padding 5, spacing 5]
+        [ c1_r1_c1 model, c2_r1_c1 model]
+
+
+
+r2_c1 model =
+    row [ bCol 9, alignBottom, El.width El.fill, El.height (fillPortion 1) , padding 5, spacing 5]
+        [ text1 model, text2 model, text3 model]
+
+
+c1_r1_c1 model =
+    column [ bCol 3, El.width (fillPortion 9), alignTop , padding 5, spacing 5, El.height El.fill]
+        [ r1_c1_r1_c1 model, r2_c1_r1_c1 model]
+
+c2_r1_c1 : Model -> Element (Msg m)
+c2_r1_c1 model =
+    let
+        -- slider : FloatValue { min:Float, max:Float, message:(Float -> m), label:String} -> Element msg
+        slider = FloatValue { min = 0, max = 90, message = Angle, label = "" }
+    in
+        column [ bCol 4, El.width (fillPortion 1) , padding 5, spacing 5, El.height El.fill]
+        [ drawInput slider model.barAngle Vertical]
+
+
+aSlider =
+    el [ centerY, centerX , padding 5, spacing 5, bCol 7] 
+        (el [ centerY , padding 5, spacing 5] (El.text "aSlider"))
+
+
+r1_c1_r1_c1 model =
+    row [ bCol 5, alignTop , padding 5, spacing 25, El.width El.fill]
+        [ c1_r1_c1_r1_c1 model, c2_r1_c1_r1_c1 model]
+
+
+r2_c1_r1_c1 model =
+    row [ bCol 6, El.height El.fill, El.width El.fill, alignBottom , padding 5, spacing 5]
+        [ aSvg model ]
+
+
+aSvg model =
+    let
+        barGeo : BarGeometry
+        barGeo =
+            mapToSvgCoordinates (calculateBarGeometry model)
+    in
+        el [El.height El.fill, El.width El.fill, padding 5, spacing 5] 
+        -- (El.text "aSvg")
+        (El.html (drawFulBar model barGeo))
+
+c1_r1_c1_r1_c1 model =
+    column [ bCol 7 , padding 5, spacing 5, 
+    El.width (El.fill
+                        |> El.maximum 200
+                        |> El.minimum 100)]
+        [ aSlider4 model]
+
+c2_r1_c1_r1_c1 model =
+    column [ bCol 8 , padding 5, spacing 5, alignRight]
+        [ checkbox1 model, checkbox2 model ]
+
+{--
+aSlider1 =
+    let
+        slider = IntValue { min = 25, max = 90, step=5,  message = BarWeightChanged, label = "" }
+    in
+        column [ bCol 4, El.width (fillPortion 1) , padding 5, spacing 5, El.height El.fill]
+        [ drawInput slider 45 Horizontal]
+        --[ drawInput slider 4 Vertical]
+
+
+aSlider2 =
+    let
+        -- slider = IntValue { min = 0, max = 60, step=1,  message = ExtraWeightChanged, label = "" }
+        slider = FloatValue { min = 0, max = 60,  message = ExtraWeightChanged, label = "" }
+    in
+        column [ bCol 4, El.width (fillPortion 1) , padding 5, spacing 5, El.height El.fill]
+        [ drawInput slider 0 Horizontal]
+        --[ drawInput slider 0 Vertical]
+
+--}
+aSlider3 model = 
+        column [ bCol 20, El.width (fillPortion 1) , padding 5, spacing 5, 
+                El.height (El.fill
+                        |> El.maximum 300
+                        |> El.minimum 100)]
+        [ El.html (input
             [ type_ "range"
             , Attrs.min "0"
             , Attrs.max "90"
             , value <| String.fromFloat model.barAngle
-            , onInput Angle
+            , onInput AngleStr
             ]
-            []
-        , text <| String.fromFloat model.barAngle
-        , br [] []
-        , fieldset []
-            [ optionCheckBox showCoGForceVector model
-            , optionCheckBox showCogNormalForceVector model
-            , optionCheckBox showHandleGravityForceVector model
-            , optionCheckBox showHandleNormalForceVector model
-            ]
-        , br [] []
-        , input [ placeholder "factor", value (String.fromFloat model.forceToLengthFactor), onInput ForceToLenFactorChanged ] []
-        , input [ placeholder "barLength", value (String.fromFloat model.barLength), onInput BarLengthChanged ] []
-        , input [ placeholder "barWeight", value (String.fromFloat model.barWeight), onInput BarWeightChanged ] []
-        , input [ placeholder "extraWeight", value (String.fromFloat model.extraWeight), onInput ExtraWeightChanged ] []
-        , br [] []
-
-        -- , label [] [ text ("cog force: " ++ String.fromFloat barGeo.cogGravityForce) ]
-        -- , br [] []
-        -- , label [] [ text ("handle force: " ++ String.fromFloat barGeo.endPointGravityForce) ]
-        -- , br [] []
-        , svg
-            [ width "800"
-            , height "800"
-            , viewBox "0 0 viewWidth viewHeight"
-            ]
-            [ defs []
-                [ marker
-                    [ id "arrowhead"
-                    , viewBox "0 0 10 10"
-                    , markerUnits "strokeWidth"
-                    , markerWidth "10"
-                    , markerHeight "10"
-                    , refX "1"
-                    , refY "5"
-                    , orient "auto"
-                    ]
-                    [ path [ d "M 0 0 L 10 5 L 0 10 z", fill "black" ] [] ]
-                ]
-            , drawBar barGeo.shape barGeo.weightShape
-            , if isOptionSet showCoGForceVector model then
-                drawForceVector 
-                    barGeo.centerOfGravityPoint 
-                    barGeo.cogGravityForceEndPoint 
-                    "red" 
-                    (Round.round 2 barGeo.cogGravityForce ++ " lbs")
-
-              else
-                div [] []
-            , if isOptionSet showCogNormalForceVector model then
-                drawForceVector 
-                    barGeo.centerOfGravityPoint 
-                    barGeo.cogNormalForceEndPoint 
-                    "blue" 
-                    (Round.round 2 barGeo.cogNormalForce ++ " lbs")
-
-              else
-                div [] []
-            , if isOptionSet showHandleGravityForceVector model then
-                drawForceVector 
-                    barGeo.handlePoint 
-                    barGeo.handleGravityForceEndPoint 
-                    "green" 
-                    (Round.round 2 barGeo.endPointGravityForce ++ " lbs")
-
-              else
-                div [] []
-            , if isOptionSet showHandleNormalForceVector model then
-                drawForceVector 
-                    barGeo.handlePoint 
-                    barGeo.handleNormalForceEndPoint 
-                    "purple" 
-                    (Round.round 2 barGeo.endPointNormalForce ++ " lbs")
-
-              else
-                div [] []
-            , if isOptionSet showLabels model then
-                div [] []
-
-              else
-                div [] []
-            ]
+            [])
         ]
+
+aSlider4 model = 
+        column [ bCol 21, El.width El.fill, padding 5, spacing 5, 
+                El.height El.fill]
+                        
+        [ Input.text [] {
+            onChange = BarWeightChanged
+            , text = String.fromFloat model.barWeight
+            , placeholder = Just <| Input.placeholder [] <| El.text "Type here"
+            , label = Input.labelLeft [] <| El.text "Bar Weight"
+        }
+         ,
+          Input.text [] {
+            onChange = ExtraWeightChanged
+            , text = String.fromFloat model.extraWeight
+            , placeholder = Just <| Input.placeholder [] <| El.text "Type here"
+            , label = Input.labelLeft [] <| El.text "Extra Weight"
+        }
+
+        ]
+
+checkbox1 : Model -> Element (Msg Bool)
+checkbox1 model =
+    drawCheckbox "show normal force vector" NormalForceOptionChanged model.showNormalForceVector
+
+checkbox2 : Model -> Element (Msg Bool)
+checkbox2 model =
+    drawCheckbox "show gravity force vector" GravityForceOptionChanged model.showGravityForceVector
+
+
+
+
+
+text1 model =
+    el [] (El.text ("angle: " ++ (String.fromFloat <| model.barAngle)))
+
+
+text2 model =
+    el [] (El.text "aText2")
+
+
+text3 model =
+    el [] (El.text "aText3")
+
+
+
+drawFulBar: Model -> BarGeometry -> Html (Msg m)
+drawFulBar model barGeo =
+     svg
+        [ Svg.Attributes.width "600"
+        , Svg.Attributes.height "600"
+        , viewBox ("0 0 " ++ (String.fromFloat viewWidth) ++ " " ++ (String.fromFloat viewHeight))
+        ]
+        [ defs []
+            [ marker
+                [ id "arrowhead"
+                , viewBox "0 0 10 10"
+                , markerUnits "strokeWidth"
+                , markerWidth "10"
+                , markerHeight "10"
+                , refX "1"
+                , refY "5"
+                , orient "auto"
+                ]
+                [ path [ d "M 0 0 L 10 5 L 0 10 z", Svg.Attributes.fill "black" ] [] ]
+            ]
+        , drawBar barGeo.shape barGeo.weightShape
+        , if model.showGravityForceVector == True then
+            drawForceVector 
+                barGeo.centerOfGravityPoint 
+                barGeo.cogGravityForceEndPoint 
+                "red" 
+                (Round.round 2 barGeo.cogGravityForce ++ " lbs")
+
+            else
+            div [] []
+        , if model.showNormalForceVector == True then
+            drawForceVector 
+                barGeo.centerOfGravityPoint 
+                barGeo.cogNormalForceEndPoint 
+                "blue" 
+                (Round.round 2 barGeo.cogNormalForce ++ " lbs")
+
+            else
+            div [] []
+        , if model.showGravityForceVector == True then
+            drawForceVector 
+                barGeo.handlePoint 
+                barGeo.handleGravityForceEndPoint 
+                "green" 
+                (Round.round 2 barGeo.endPointGravityForce ++ " lbs")
+
+            else
+            div [] []
+        , if model.showNormalForceVector == True then
+            drawForceVector 
+                barGeo.handlePoint 
+                barGeo.handleNormalForceEndPoint 
+                "purple" 
+                (Round.round 2 barGeo.endPointNormalForce ++ " lbs")
+            else
+            div [] []
+        ]
+
 
 
 drawBar shape weight =
     g []
-        [ polygon [ fill "None", stroke "black", points (path2svgPath shape) ] []
-        , polygon [ fill "black", stroke "black", points (path2svgPath weight) ] []
+        [ polygon [ Svg.Attributes.fill "None", stroke "black", points (path2svgPath shape) ] []
+        , polygon [ Svg.Attributes.fill "black", stroke "black", points (path2svgPath weight) ] []
         ]
 
 
@@ -673,7 +755,35 @@ drawForceVector start end color_ label_ =
             , fontSize "14, x 5, y 65"
             , x (String.fromFloat (getX end))
             , y (String.fromFloat (getY end + 20))
-            , fill color_
+            , Svg.Attributes.fill color_
             ]
-            [ text label_ ]
+            [ Html.text label_ ]
         ]
+color1 =
+    { col1 = rgb255 10 10 10
+    , col2 = rgb255 50 50 50
+    , col3 = rgb255 100 100 100
+    , col4 = rgb255 50 100 200
+    , col5 = rgb255 200 100 50
+    , col6 = rgb255 50 200 200
+    , col7 = rgb255 90 200 10
+    , col8 = rgb255 123 166 183
+    , col9 = rgb255 123 166 183
+    , col10 = rgb255 255 255 255
+    , col11 = rgb255 0 0 0
+    , col10a = rgba255 255 255 255 0
+    , col11a = rgba255 0 0 0 0
+    }
+
+bCol: Int -> El.Attr decorative msg
+bCol i =
+    let
+        r = 2 * i * 5
+        g = 4 * i * 5
+        b = 3 * i * 5
+    in
+    -- Background.color (rgb255 r g b)
+    Background.color color1.col10
+
+
+
