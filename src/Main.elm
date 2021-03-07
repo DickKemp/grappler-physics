@@ -1,18 +1,9 @@
-module Main exposing (main, viewHeight)
-
--- visualize the physics of the grappler
---
---import Html exposing (..)
---import Html.Attributes exposing (..)
---import Html.Events exposing (onClick)
-
+module Main exposing (main)
 import Browser
-import Dict
 import Html exposing (Html, br, div, fieldset, input, label)
 import Html.Attributes as Attrs exposing (checked, placeholder, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Element.Background as Background
-import Element.Border as Border
 import Element.Font as Font
 import Element as El exposing (Element, alignTop, alignLeft, alignBottom, alignRight, 
     centerY, centerX, column, el, fill, fillPortion, height, padding, px, rgb255, rgba255, row, spacing, text, width)
@@ -52,116 +43,8 @@ import Svg.Attributes
         , y2
         )
 
--- import Browser.Dom exposing (Element)
-
 import BoundedNumericValue exposing (..)
-main : Program () Model (Msg Bool)
-main =
-    Browser.element { init = init, subscriptions=subscriptions, update = update, view = view }
-
-
--- MODEL
-
-
-viewHeight : Float
-viewHeight =
-    600.0
-
-
-viewWidth : Float
-viewWidth =
-    600.0
-
-
-xPad =
-    20.0
-
-
-yPad =
-    20.0
-
-
-barLength : Float
-barLength =
-    180.0 * 2.5
-
-
-barWidth : Float
-barWidth =
-    2 * 2.5
-
-
-barWeight : Float
-barWeight =
-    45.0
-
-
-fulcrum : Point
-fulcrum =
-    ( 50, 100 )
-
-
-forceToLengthFactor : Float
-forceToLengthFactor =
-    2.2
-
-
-type alias Model =
-    { barLength : Float
-    , barWeight : Float
-    , extraWeight : Float
-    , barAngle : Float
-    , extraWeightDistanceFromFulcrum : Float
-    , showNormalForceVector: Bool
-    , showGravityForceVector: Bool
-    , viewHeight : Float
-    , viewWidth : Float
-    , xPad : Float
-    , yPad : Float
-    , barWidth : Float
-    , fulcrum : Point
-    , forceToLengthFactor : Float
-    }
-
-
-showCoGForceVector =
-    "Display gravitational force vector at the bar's center of gravity"
-
-
-showCogNormalForceVector =
-    "Dispay normal force vector at the bar's center of gravity"
-
-
-showHandleGravityForceVector =
-    "Display gravitational force vector at the end of the bar"
-
-
-showHandleNormalForceVector =
-    "Display normal force vector at the end of the bar"
-
-
-showLabels =
-    "showLabels"
-
-
-
-type Msg m
-    = Angle Float
-    | AngleStr String
-    | NormalForceOptionChanged Bool
-    | GravityForceOptionChanged Bool
-    | ForceToLenFactorChanged String
-    | BarLengthChanged String
-    | BarWeightChanged String
-    | ExtraWeightChanged String
-
-type alias Point =
-    ( Float, Float )
-
-
-type alias Path =
-    List Point
-
+-- import BarGeometry exposing (..)
 
 type alias BarGeometry =
     { shape : Path
@@ -177,6 +60,14 @@ type alias BarGeometry =
     , endPointNormalForce : Float
     , weightShape : Path
     }
+
+
+type alias Point =
+    ( Float, Float )
+
+type alias Path =
+    List Point
+
 
 
 shiftPoint : Point -> Point -> (Float -> Float -> Float) -> Point
@@ -205,31 +96,6 @@ rotatePoint angle origin pt =
             ( getX polarPoint, getY polarPoint + degrees angle )
     in
     shiftPointUp (fromPolar rotatedPoint) origin
-
-
-init : () -> ( Model, Cmd (Msg m) )
-init _ =
-
-    ( Model barLength
-        barWeight
-        -- extra weight added to bar
-        0.0
-        -- bar angle in degrees
-        0.0
-        -- extraWeightDistanceFromFulcrum
-        (barLength - (barLength / 8))
-        False
-        True
-        viewHeight
-        viewWidth
-        xPad
-        yPad
-        barWidth
-        fulcrum
-        -- forceToLengthFactor
-        1.0
-    , Cmd.none
-    )
 
 
 getX point =
@@ -303,7 +169,6 @@ calcWeightShape origin_ barWidth_ extraWeightDistanceFromFulcrum_ extraWeight_ =
     , ( originX + ex, originY - (barWidth_ + extraWeight_) )
     , ( originX + ex, originY )
     ]
-
 
 calculateBarGeometry : Model -> BarGeometry
 calculateBarGeometry model =
@@ -408,33 +273,119 @@ rotateBar angle origin barGeo =
         (List.map (rotatePoint angle origin) barGeo.weightShape)
 
 
-mapPointToSvgCoordinates : Point -> Point
-mapPointToSvgCoordinates point =
+mapToSvgCoordinates : BarGeometry -> Model -> BarGeometry
+mapToSvgCoordinates barGeo model =
     let
-        x =
-            getX point
-
-        y =
-            getY point
+        mapPointToSvgCoordinates : Model -> Point -> Point
+        mapPointToSvgCoordinates model_ point =
+            ( (getX point) + model_.xPad, model_.viewHeight - (getY point) - model_.yPad )
     in
-    ( x + xPad, viewHeight - y - yPad )
-
-
-mapToSvgCoordinates : BarGeometry -> BarGeometry
-mapToSvgCoordinates barGeo =
     BarGeometry
-        (List.map mapPointToSvgCoordinates barGeo.shape)
-        (mapPointToSvgCoordinates barGeo.centerOfGravityPoint)
-        (mapPointToSvgCoordinates barGeo.handlePoint)
-        (mapPointToSvgCoordinates barGeo.cogGravityForceEndPoint)
-        (mapPointToSvgCoordinates barGeo.cogNormalForceEndPoint)
-        (mapPointToSvgCoordinates barGeo.handleGravityForceEndPoint)
-        (mapPointToSvgCoordinates barGeo.handleNormalForceEndPoint)
+        (List.map (mapPointToSvgCoordinates model) barGeo.shape)
+        (mapPointToSvgCoordinates model barGeo.centerOfGravityPoint)
+        (mapPointToSvgCoordinates model barGeo.handlePoint)
+        (mapPointToSvgCoordinates model barGeo.cogGravityForceEndPoint)
+        (mapPointToSvgCoordinates model barGeo.cogNormalForceEndPoint)
+        (mapPointToSvgCoordinates model barGeo.handleGravityForceEndPoint)
+        (mapPointToSvgCoordinates model barGeo.handleNormalForceEndPoint)
         barGeo.cogGravityForce
         barGeo.endPointGravityForce
         barGeo.cogNormalForce
         barGeo.endPointNormalForce
-        (List.map mapPointToSvgCoordinates barGeo.weightShape)
+        (List.map (mapPointToSvgCoordinates model) barGeo.weightShape)
+
+stringToFloat strval =
+    case String.toFloat strval of
+        Just val ->
+            val
+
+        Nothing ->
+            0.0
+
+tuple2str : Point -> String
+tuple2str tpl =
+    String.fromFloat (getX tpl) ++ "," ++ String.fromFloat (getY tpl)
+
+
+path2svgPath : Path -> String
+path2svgPath path =
+    String.join " " (List.map tuple2str path)
+
+
+boolToString : Maybe Bool -> String
+boolToString boolean =
+    case boolean of
+        Just True ->
+            "True"
+
+        Just False ->
+            "False"
+
+        Nothing ->
+            "unknown"
+
+
+-- MAIN
+main : Program () Model (Msg Bool)
+main =
+    Browser.element { init = init, subscriptions=subscriptions, update = update, view = view }
+
+
+-- MODEL
+
+type alias Model =
+    { barLength : Float
+    , barWeight : Float
+    , extraWeight : Float
+    , barAngle : Float
+    , extraWeightDistanceFromFulcrum : Float
+    , showNormalForceVector: Bool
+    , showGravityForceVector: Bool
+    , viewHeight : Float
+    , viewWidth : Float
+    , xPad : Float
+    , yPad : Float
+    , barWidth : Float
+    , fulcrum : Point
+    , forceToLengthFactor : Float
+    }
+
+type Msg m
+    = Angle Float
+    | AngleStr String
+    | NormalForceOptionChanged Bool
+    | GravityForceOptionChanged Bool
+    | ForceToLenFactorChanged String
+    | BarLengthChanged String
+    | BarWeightChanged String
+    | ExtraWeightChanged String
+
+
+
+-- INIT
+init : () -> ( Model, Cmd (Msg m) )
+init _ =
+
+    let
+        barLength_ = 180*2.5
+        model = 
+            { barLength=barLength_
+            , barWeight=45
+            , extraWeight=0.0
+            , barAngle=0.0
+            , extraWeightDistanceFromFulcrum=(barLength_ - (barLength_ / 8))
+            , showNormalForceVector=False
+            , showGravityForceVector=False
+            , viewHeight=600
+            , viewWidth=600
+            , xPad=20
+            , yPad=20
+            , barWidth=2*2.5
+            , fulcrum=( 50, 100 )
+            , forceToLengthFactor=1.0
+            }
+    in
+        ( model, Cmd.none )
 
 
 
@@ -470,17 +421,8 @@ update msg model =
             ( { model | forceToLengthFactor = stringToFloat factorStr }, Cmd.none )
 
 
-
 -- SUBSCRIPTIONS
 
-
-stringToFloat strval =
-    case String.toFloat strval of
-        Just val ->
-            val
-
-        Nothing ->
-            0.0
 
 
 subscriptions : Model -> Sub (Msg m)
@@ -488,41 +430,10 @@ subscriptions _ =
     Sub.none
 
 
-tuple2str : Point -> String
-tuple2str tpl =
-    String.fromFloat (getX tpl) ++ "," ++ String.fromFloat (getY tpl)
-
-
-path2svgPath : Path -> String
-path2svgPath path =
-    String.join " " (List.map tuple2str path)
-
-
 
 -- VIEW
-
-
-boolToString : Maybe Bool -> String
-boolToString boolean =
-    case boolean of
-        Just True ->
-            "True"
-
-        Just False ->
-            "False"
-
-        Nothing ->
-            "unknown"
-
 view model =
-    let
-        barGeo : BarGeometry
-        barGeo =
-            mapToSvgCoordinates (calculateBarGeometry model)
-    in
-
         El.layout [ El.width El.fill, El.height El.fill, padding 5, spacing 5 ]
-        --colStuff
         (c1 model)
 
 
@@ -556,11 +467,6 @@ c2_r1_c1 model =
         [ drawInput slider model.barAngle Vertical]
 
 
-aSlider =
-    el [ centerY, centerX , padding 5, spacing 5, bCol 7] 
-        (el [ centerY , padding 5, spacing 5] (El.text "aSlider"))
-
-
 r1_c1_r1_c1 model =
     row [ bCol 5, alignTop , padding 5, spacing 25, El.width El.fill]
         [ c1_r1_c1_r1_c1 model, c2_r1_c1_r1_c1 model]
@@ -575,11 +481,11 @@ aSvg model =
     let
         barGeo : BarGeometry
         barGeo =
-            mapToSvgCoordinates (calculateBarGeometry model)
+            mapToSvgCoordinates (calculateBarGeometry model) model
     in
         el [El.height El.fill, El.width El.fill, padding 5, spacing 5] 
         -- (El.text "aSvg")
-        (El.html (drawFulBar model barGeo))
+        (El.html (drawFullBar model barGeo))
 
 c1_r1_c1_r1_c1 model =
     column [ bCol 7 , padding 5, spacing 5, 
@@ -592,40 +498,6 @@ c2_r1_c1_r1_c1 model =
     column [ bCol 8 , padding 5, spacing 5, alignRight]
         [ checkbox1 model, checkbox2 model ]
 
-{--
-aSlider1 =
-    let
-        slider = IntValue { min = 25, max = 90, step=5,  message = BarWeightChanged, label = "" }
-    in
-        column [ bCol 4, El.width (fillPortion 1) , padding 5, spacing 5, El.height El.fill]
-        [ drawInput slider 45 Horizontal]
-        --[ drawInput slider 4 Vertical]
-
-
-aSlider2 =
-    let
-        -- slider = IntValue { min = 0, max = 60, step=1,  message = ExtraWeightChanged, label = "" }
-        slider = FloatValue { min = 0, max = 60,  message = ExtraWeightChanged, label = "" }
-    in
-        column [ bCol 4, El.width (fillPortion 1) , padding 5, spacing 5, El.height El.fill]
-        [ drawInput slider 0 Horizontal]
-        --[ drawInput slider 0 Vertical]
-
---}
-aSlider3 model = 
-        column [ bCol 20, El.width (fillPortion 1) , padding 5, spacing 5, 
-                El.height (El.fill
-                        |> El.maximum 300
-                        |> El.minimum 100)]
-        [ El.html (input
-            [ type_ "range"
-            , Attrs.min "0"
-            , Attrs.max "90"
-            , value <| String.fromFloat model.barAngle
-            , onInput AngleStr
-            ]
-            [])
-        ]
 
 aSlider4 model = 
         column [ bCol 21, El.width El.fill, padding 5, spacing 5, 
@@ -660,24 +532,24 @@ checkbox2 model =
 
 
 text1 model =
-    el [] (El.text ("angle: " ++ (String.fromFloat <| model.barAngle)))
-
+    el [] (El.text (("angle: " ++ (Round.round 2 model.barAngle)) ++ " degrees"))
+   -- el [] (El.text ("angle: " ++ (String.fromFloat <| model.barAngle)))
 
 text2 model =
-    el [] (El.text "aText2")
+    el [] (El.text "")
 
 
 text3 model =
-    el [] (El.text "aText3")
+    el [] (El.text "")
 
 
 
-drawFulBar: Model -> BarGeometry -> Html (Msg m)
-drawFulBar model barGeo =
+drawFullBar: Model -> BarGeometry -> Html (Msg m)
+drawFullBar model barGeo =
      svg
         [ Svg.Attributes.width "600"
         , Svg.Attributes.height "600"
-        , viewBox ("0 0 " ++ (String.fromFloat viewWidth) ++ " " ++ (String.fromFloat viewHeight))
+        , viewBox ("0 0 " ++ (String.fromFloat model.viewWidth) ++ " " ++ (String.fromFloat model.viewHeight))
         ]
         [ defs []
             [ marker
@@ -783,7 +655,10 @@ bCol i =
         b = 3 * i * 5
     in
     -- Background.color (rgb255 r g b)
-    Background.color color1.col10
+    if i == 1 then
+        Background.color color1.col11
+    else
+        Background.color color1.col10
 
 
 
