@@ -44,6 +44,7 @@ import Svg.Attributes
         )
 
 import BoundedNumericValue exposing (..)
+import Element exposing (Color)
 -- import BarGeometry exposing (..)
 
 type alias BarGeometry =
@@ -98,10 +99,12 @@ rotatePoint angle origin pt =
     shiftPointUp (fromPolar rotatedPoint) origin
 
 
+getX : (a, b) -> a
 getX point =
     Tuple.first point
 
 
+getY : (a, b) -> b
 getY point =
     Tuple.second point
 
@@ -148,6 +151,7 @@ calcBarShape2 origin_ barLength_ barWidth_ offset_ =
     ]
 
 
+calcWeightShape : Point -> Float -> Float -> Float -> List Point
 calcWeightShape origin_ barWidth_ extraWeightDistanceFromFulcrum_ extraWeight_ =
     let
         originX =
@@ -294,6 +298,7 @@ mapToSvgCoordinates barGeo model =
         barGeo.endPointNormalForce
         (List.map (mapPointToSvgCoordinates model) barGeo.weightShape)
 
+stringToFloat : String -> Float
 stringToFloat strval =
     case String.toFloat strval of
         Just val ->
@@ -361,7 +366,6 @@ type Msg m
     | ExtraWeightChanged String
 
 
-
 -- INIT
 init : () -> ( Model, Cmd (Msg m) )
 init _ =
@@ -423,36 +427,38 @@ update msg model =
 
 -- SUBSCRIPTIONS
 
-
-
 subscriptions : Model -> Sub (Msg m)
 subscriptions _ =
     Sub.none
 
 
-
 -- VIEW
+view : { barLength : Float, barWeight : Float, extraWeight : Float, barAngle : Float, extraWeightDistanceFromFulcrum : Float, showNormalForceVector : Bool, showGravityForceVector : Bool, viewHeight : Float, viewWidth : Float, xPad : Float, yPad : Float, barWidth : Float, fulcrum : Point, forceToLengthFactor : Float } -> Html (Msg Bool)
 view model =
         El.layout [ El.width El.fill, El.height El.fill, padding 5, spacing 5 ]
         (c1 model)
 
 
+c1 : { barLength : Float, barWeight : Float, extraWeight : Float, barAngle : Float, extraWeightDistanceFromFulcrum : Float, showNormalForceVector : Bool, showGravityForceVector : Bool, viewHeight : Float, viewWidth : Float, xPad : Float, yPad : Float, barWidth : Float, fulcrum : Point, forceToLengthFactor : Float } -> Element (Msg Bool)
 c1 model =
     column [ bCol 1, El.width El.fill, El.height El.fill , padding 5, spacing 5]
         [ r1_c1 model, r2_c1 model]
 
 
+r1_c1 : { barLength : Float, barWeight : Float, extraWeight : Float, barAngle : Float, extraWeightDistanceFromFulcrum : Float, showNormalForceVector : Bool, showGravityForceVector : Bool, viewHeight : Float, viewWidth : Float, xPad : Float, yPad : Float, barWidth : Float, fulcrum : Point, forceToLengthFactor : Float } -> Element (Msg Bool)
 r1_c1 model =
     row [ bCol 2, El.width El.fill, El.height (fillPortion 10)  , padding 5, spacing 5]
         [ c1_r1_c1 model, c2_r1_c1 model]
 
 
 
+r2_c1 : { a | barAngle : Float } -> Element msg
 r2_c1 model =
     row [ bCol 9, alignBottom, El.width El.fill, El.height (fillPortion 1) , padding 5, spacing 5]
         [ text1 model, text2 model, text3 model]
 
 
+c1_r1_c1 : { barLength : Float, barWeight : Float, extraWeight : Float, barAngle : Float, extraWeightDistanceFromFulcrum : Float, showNormalForceVector : Bool, showGravityForceVector : Bool, viewHeight : Float, viewWidth : Float, xPad : Float, yPad : Float, barWidth : Float, fulcrum : Point, forceToLengthFactor : Float } -> Element (Msg Bool)
 c1_r1_c1 model =
     column [ bCol 3, El.width (fillPortion 9), alignTop , padding 5, spacing 5, El.height El.fill]
         [ r1_c1_r1_c1 model, r2_c1_r1_c1 model]
@@ -467,16 +473,19 @@ c2_r1_c1 model =
         [ drawInput slider model.barAngle Vertical]
 
 
+r1_c1_r1_c1 : { barLength : Float, barWeight : Float, extraWeight : Float, barAngle : Float, extraWeightDistanceFromFulcrum : Float, showNormalForceVector : Bool, showGravityForceVector : Bool, viewHeight : Float, viewWidth : Float, xPad : Float, yPad : Float, barWidth : Float, fulcrum : Point, forceToLengthFactor : Float } -> Element (Msg Bool)
 r1_c1_r1_c1 model =
     row [ bCol 5, alignTop , padding 5, spacing 25, El.width El.fill]
         [ c1_r1_c1_r1_c1 model, c2_r1_c1_r1_c1 model]
 
 
+r2_c1_r1_c1 : Model -> Element (Msg m)
 r2_c1_r1_c1 model =
     row [ bCol 6, El.height El.fill, El.width El.fill, alignBottom , padding 5, spacing 5]
         [ aSvg model ]
 
 
+aSvg : Model -> Element (Msg m)
 aSvg model =
     let
         barGeo : BarGeometry
@@ -487,6 +496,7 @@ aSvg model =
         -- (El.text "aSvg")
         (El.html (drawFullBar model barGeo))
 
+c1_r1_c1_r1_c1 : { a | barWeight : Float, extraWeight : Float } -> Element (Msg m)
 c1_r1_c1_r1_c1 model =
     column [ bCol 7 , padding 5, spacing 5, 
     El.width (El.fill
@@ -494,11 +504,13 @@ c1_r1_c1_r1_c1 model =
                         |> El.minimum 100)]
         [ aSlider4 model]
 
+c2_r1_c1_r1_c1 : Model -> Element (Msg Bool)
 c2_r1_c1_r1_c1 model =
     column [ bCol 8 , padding 5, spacing 5, alignRight]
         [ checkbox1 model, checkbox2 model ]
 
 
+aSlider4 : { a | barWeight : Float, extraWeight : Float } -> Element (Msg m)
 aSlider4 model = 
         column [ bCol 21, El.width El.fill, padding 5, spacing 5, 
                 El.height El.fill]
@@ -531,14 +543,17 @@ checkbox2 model =
 
 
 
+text1 : { a | barAngle : Float } -> Element msg
 text1 model =
     el [] (El.text (("angle: " ++ (Round.round 2 model.barAngle)) ++ " degrees"))
    -- el [] (El.text ("angle: " ++ (String.fromFloat <| model.barAngle)))
 
+text2 : a -> Element msg
 text2 model =
     el [] (El.text "")
 
 
+text3 : a -> Element msg
 text3 model =
     el [] (El.text "")
 
@@ -604,6 +619,7 @@ drawFullBar model barGeo =
 
 
 
+drawBar : Path -> Path -> Svg msg
 drawBar shape weight =
     g []
         [ polygon [ Svg.Attributes.fill "None", stroke "black", points (path2svgPath shape) ] []
@@ -611,6 +627,7 @@ drawBar shape weight =
         ]
 
 
+drawForceVector : (Float, Float) -> (Float, Float) -> String -> String -> Svg msg
 drawForceVector start end color_ label_ =
     g []
         [ line
@@ -631,6 +648,7 @@ drawForceVector start end color_ label_ =
             ]
             [ Html.text label_ ]
         ]
+color1 : { col1 : Color, col2 : Color, col3 : Color, col4 : Color, col5 : Color, col6 : Color, col7 : Color, col8 : Color, col9 : Color, col10 : Color, col11 : Color, col10a : Color, col11a : Color }
 color1 =
     { col1 = rgb255 10 10 10
     , col2 = rgb255 50 50 50
@@ -649,11 +667,11 @@ color1 =
 
 bCol: Int -> El.Attr decorative msg
 bCol i =
-    let
-        r = 2 * i * 5
-        g = 4 * i * 5
-        b = 3 * i * 5
-    in
+    -- let
+    --     r = 2 * i * 5
+    --     g = 4 * i * 5
+    --     b = 3 * i * 5
+    -- in
     -- Background.color (rgb255 r g b)
     if i == 1 then
         Background.color color1.col11

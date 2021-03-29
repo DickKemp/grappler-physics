@@ -1,10 +1,10 @@
 module BoundedNumericValue exposing (..)
 
 import Browser
-import Element exposing (Element, alignLeft, alignRight, behindContent, centerX, centerY, column, el, fill, height, padding, px, rgb255, row, spacing, text, width)
+import Element exposing (Element, behindContent, centerX, centerY, column, el, fill, height, padding, px, rgb255, text, width)
 import Element.Background as Background
 import Element.Border as Border
-import Element.Font as Font
+-- import Element.Font as Font
 import Element.Input as Input
 import Html exposing (Html)
 
@@ -53,16 +53,16 @@ type Orientation
     | Horizontal
 
 
--- drawInput : (BoundedNumericValue a) -> Float -> Orientation -> Element a
+drawInput : BoundedNumericValue msg -> Float -> Orientation -> Element msg
 drawInput boundedValue value_ orientation =
     let
-        label_ =
-            case boundedValue of
-                IntValue { min, max, step, message, label } ->
-                    text (label ++ String.fromFloat value_)
+        -- label_ =
+        --     case boundedValue of
+        --         IntValue { min, max, step, message, label } ->
+        --             text (label ++ String.fromFloat value_)
 
-                FloatValue { min, max, message, label } ->
-                    text (label ++ String.fromFloat value_)
+        --         FloatValue { min, max, message, label } ->
+        --             text (label ++ String.fromFloat value_)
 
         { min_, max_, step_, message_ } =
             case boundedValue of
@@ -126,6 +126,7 @@ drawCheckbox label_ message_ value_ =
         , label = Input.labelRight [] <| text label_
         }
 
+color : { blue : Element.Color, darkCharcoal : Element.Color, lightBlue : Element.Color, lightGrey : Element.Color, white : Element.Color }
 color =
     { blue = rgb255 0x72 0x9F 0xCF
     , darkCharcoal = rgb255 0x2E 0x34 0x36
