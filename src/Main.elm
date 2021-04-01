@@ -50,6 +50,7 @@ import Svg.Attributes
         , y2
         )
 import Orig_Main exposing (fulcrum)
+import Orig_Main exposing (viewWidth)
 -- import Orig_Main exposing (barLength)
 
 -- TYPES
@@ -76,6 +77,9 @@ type alias BarGeometry =
     , fulcrumGravityForceAmt : Float
     , fulcrumGravityForcePoint : Point
 
+    , viewHeight : Float
+    , viewWidth : Float
+
     }
 
 
@@ -96,6 +100,8 @@ makeEmptyBarGeometry =
     , fulcrumPoint = (0,0)
     , fulcrumGravityForceAmt = 0.0
     , fulcrumGravityForcePoint = (0,0)
+    , viewHeight=0.0
+    , viewWidth=0.0
     }
 
 
@@ -120,6 +126,9 @@ shiftPointDown point delta =
 shiftPointUp : Point -> Point -> Point
 shiftPointUp point delta =
     shiftPoint point delta (+)
+
+shiftY : Point -> Float -> Point 
+shiftY (x,y) n = shiftPointUp (x,y) (0,n)
 
 
 rotatePoint : Float -> Point -> Point -> Point
@@ -164,15 +173,15 @@ path2svgPath path =
     String.join " " (List.map tuple2str path)
 
 
-derivePathOfBar : Point -> Float -> Float -> Float -> Float -> Float -> ( Path, Path )
-derivePathOfBar fulcrum barLength barWidth extraWeightDistanceFromFulcrum extraWeight offset =
-    ( derivePathOfBarShaft fulcrum barLength barWidth offset
-    , derivePathOfExtraWeight fulcrum barWidth extraWeightDistanceFromFulcrum extraWeight
+derivePathOfBar : Point -> Float -> Float -> Float -> Float -> ( Path, Path )
+derivePathOfBar fulcrum barLength barWidth collarLen extraWeight  =
+    ( derivePathOfBarShaft fulcrum barLength barWidth collarLen 
+    , derivePathOfExtraWeight fulcrum barWidth (barLength - collarLen) extraWeight
     )
 
 
 derivePathOfBarShaft : Point -> Float -> Float -> Float -> Path
-derivePathOfBarShaft origin_ barLength_ barWidth_ offset_ =
+derivePathOfBarShaft origin_ barLength_ barWidth_ collarLen_ =
     let
         originX =
             getX origin_
@@ -184,7 +193,7 @@ derivePathOfBarShaft origin_ barLength_ barWidth_ offset_ =
             5
 
         collarLen =
-            offset_ + nudge
+            collarLen_ + nudge
 
         innerBarLen =
             barLength_ - (2 * collarLen) - (2 * nudge)
@@ -246,23 +255,18 @@ calculateBarGeometry model =
         originY =
             getY model.fulcrum
 
-        offset =
-            model.barLength / 8
+        extraWeightX =
+            model.barLength - model.collarLength
 
         ( shape, weightShape ) =
-            derivePathOfBar model.fulcrum model.barLength model.barWidth model.extraWeightDistanceFromFulcrum model.extraWeight offset
+            derivePathOfBar model.fulcrum model.barLength model.barWidth model.collarLength model.extraWeight
 
         centerOfGravityForceAmt =
             model.barWeight + model.extraWeight
 
+
         midX =
             model.barLength / 2
-
-        endPointX =
-            model.barLength
-
-        extraWeightX =
-            model.extraWeightDistanceFromFulcrum
 
         cogX =
             ((midX * model.barWeight) + (extraWeightX * model.extraWeight)) / (model.barWeight + model.extraWeight)
@@ -270,6 +274,7 @@ calculateBarGeometry model =
         d1 = cogX
         d2 = model.barLength - d1
 
+        min_origin_y = centerOfGravityForceAmt * model.forceToLengthFactor
 
         fulcrumPoint = model.fulcrum
         fulcrumGravityForceAmt = centerOfGravityForceAmt * (1 - ((d1/(d1+d2)) * (cos (degrees model.barAngle))^2))
@@ -328,6 +333,8 @@ calculateBarGeometry model =
                     , fulcrumPoint = fulcrumPoint
                     , fulcrumGravityForceAmt = fulcrumGravityForceAmt
                     , fulcrumGravityForcePoint = fulcrumGravityForcePoint
+                    , viewHeight=600
+                    , viewWidth=600
                     }
     in
     rotateBar model.barAngle model.fulcrum barGeo
@@ -351,16 +358,15 @@ rotateBar angle origin barGeo =
     , fulcrumGravityForceAmt = barGeo.fulcrumGravityForceAmt
     --, fulcrumGravityForcePoint = (rotatePoint angle origin barGeo.fulcrumGravityForcePoint)
     , fulcrumGravityForcePoint = barGeo.fulcrumGravityForcePoint
+    , viewHeight=barGeo.viewHeight
+    , viewWidth=barGeo.viewWidth
     }
 
-mapPointToSvgCoordinates : {a | xPad : Float, yPad : Float, viewHeight: Float } -> Point -> Point
-mapPointToSvgCoordinates svgCoordinates point = 
-            ( getX point + svgCoordinates.xPad, svgCoordinates.viewHeight - getY point - svgCoordinates.yPad )
-
-mapToSvgCoordinates : {a | xPad : Float, yPad : Float, viewHeight: Float } -> BarGeometry -> BarGeometry
+mapToSvgCoordinates : {a | viewHeight: Float, viewWidth : Float } -> BarGeometry -> BarGeometry
 mapToSvgCoordinates svgCoordinates barGeo =
     let
-        mapPoints = mapPointToSvgCoordinates svgCoordinates
+        mapPoints point = 
+            ( getX point, svgCoordinates.viewHeight - getY point )
     in
         { shape = (List.map mapPoints barGeo.shape)
         , centerOfGravityPoint = (mapPoints barGeo.centerOfGravityPoint)
@@ -377,6 +383,8 @@ mapToSvgCoordinates svgCoordinates barGeo =
         , fulcrumPoint = (mapPoints barGeo.fulcrumPoint)
         , fulcrumGravityForceAmt = barGeo.fulcrumGravityForceAmt
         , fulcrumGravityForcePoint = (mapPoints barGeo.fulcrumGravityForcePoint)
+        , viewHeight=barGeo.viewHeight
+        , viewWidth=barGeo.viewWidth
         }
 
 -- MAIN
@@ -394,15 +402,12 @@ type alias Model =
     { barLength : Float
     , barWeight : Float
     , barWidth : Float
+    , collarLength : Float
     , extraWeight : Float
     , barAngle : Float
-    , extraWeightDistanceFromFulcrum : Float
+    -- , extraWeightDistanceFromFulcrum : Float
     , showNormalForceVector : Bool
     , showGravityForceVector : Bool
-    , viewHeight : Float
-    , viewWidth : Float
-    , xPad : Float
-    , yPad : Float
     , fulcrum : Point
     , forceToLengthFactor : Float
     , barGeo : BarGeometry
@@ -420,30 +425,21 @@ type Msg
     | ExtraWeightChanged String
 
 
-
 -- INIT
-
 
 init : () -> ( Model, Cmd Msg )
 init _ =
     let
-        barLength_ =
-            450
-
         model =
-            { barLength = barLength_
+            { barLength = 450
             , barWeight = 45
+            , barWidth = 5
             , extraWeight = 0.0
             , barAngle = 0.0
-            , extraWeightDistanceFromFulcrum = barLength_ - (barLength_ / 8)
+            , collarLength = 56
+            , fulcrum = ( 20, 100 )
             , showNormalForceVector = False
             , showGravityForceVector = False
-            , viewHeight = 600
-            , viewWidth = 600
-            , xPad = 20
-            , yPad = 20
-            , barWidth = 2 * 2.5
-            , fulcrum = ( 50, 100 )
             , forceToLengthFactor = 2.0
             , barGeo = makeEmptyBarGeometry
             }
@@ -451,9 +447,7 @@ init _ =
     ( { model | barGeo = calculateBarGeometry model }, Cmd.none )
 
 
-
 -- UPDATE
-
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -535,12 +529,12 @@ contentsPane model =
             (El.html 
                 (   
                     let
-                        svgCoordinates = {xPad=model.xPad, yPad=model.yPad, viewHeight=model.viewHeight}
+                        svgCoordinates = {viewHeight=model.barGeo.viewHeight, viewWidth=model.barGeo.viewWidth}
                         barGeo = (mapToSvgCoordinates svgCoordinates model.barGeo)
                     in
                     svg [ Svg.Attributes.width "600"
                         , Svg.Attributes.height "600"
-                        , viewBox ("0 0 " ++ String.fromFloat model.viewWidth ++ " " ++ String.fromFloat model.viewHeight)
+                        , viewBox ("0 0 " ++ String.fromFloat barGeo.viewWidth ++ " " ++ String.fromFloat barGeo.viewHeight)
                         ]
                         [ drawBar barGeo.shape barGeo.weightShape
                         , drawBarLengthRuler barGeo
@@ -592,9 +586,6 @@ contentsPane model =
 
 drawBarLengthRuler barGeo = div [] []
 drawBarHeightRuler barGeo = div [] []
-
-shiftY : Point -> Float -> Point 
-shiftY (x,y) n = (x, y + n)
 
 inputPane : Model -> Element Msg
 inputPane model =
