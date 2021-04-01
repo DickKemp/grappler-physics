@@ -547,35 +547,39 @@ contentsPane model =
                             drawForceVector
                                 barGeo.centerOfGravityPoint
                                 barGeo.centerOfGravityForcePoint
-                                "red"
+                                "blue"
                                 (Round.round 2 barGeo.centerOfGravityForceAmt ++ " lbs")
+                                False
 
                         else
                             div [] []
                         , if model.showGravityForceVector == True then
                             drawForceVector
-                                barGeo.fulcrumPoint
+                                (shiftY barGeo.fulcrumPoint model.barWidth)
                                 barGeo.fulcrumGravityForcePoint
                                 "red"
                                 (Round.round 2 barGeo.fulcrumGravityForceAmt ++ " lbs")
+                                True
 
                         else
                             div [] []
                         , if model.showGravityForceVector == True && model.showNormalForceVector == False then
                             drawForceVector
-                                barGeo.handlePoint
+                                (shiftY barGeo.handlePoint model.barWidth)
                                 barGeo.handleGravityForcePoint
                                 "red"
                                 (Round.round 2 barGeo.handleGravityForceAmt ++ " lbs")
+                                True
 
                         else
                             div [] []
                         , if model.showNormalForceVector == True then
                             drawForceVector
-                                barGeo.handlePoint
+                                (shiftY barGeo.handlePoint model.barWidth)
                                 barGeo.handleNormalForcePoint
-                                "green"
+                                "green" 
                                 (Round.round 2 barGeo.handleNormalForceAmt ++ " lbs")
+                                True
 
                         else
                             div [] []
@@ -584,6 +588,8 @@ contentsPane model =
             )
         ]
 
+shiftY : Point -> Float -> Point 
+shiftY (x,y) n = (x, y + n)
 
 inputPane : Model -> Element Msg
 inputPane model =
@@ -622,9 +628,15 @@ drawBar shape weight =
         ]
 
 
-drawForceVector : Point -> Point -> String -> String -> Svg msg
-drawForceVector start end color_ label_ =
-    g []
+drawForceVector : Point -> Point -> String -> String -> Bool -> Svg msg
+drawForceVector start_ end_ color_ label_ flip =
+    let
+        start = if flip == True then end_ else start_
+        end = if flip == True then start_ else end_
+
+        label_end = if flip == True then start else end
+    in
+        g []
         -- here we define the arrowhead that we will use when drawing force vectors
         [ defs [] 
             [ marker
@@ -651,8 +663,8 @@ drawForceVector start end color_ label_ =
         , text_
             [ fontFamily "sans-serif"
             , fontSize "14, x 5, y 65"
-            , x (String.fromFloat (getX end))
-            , y (String.fromFloat (getY end + 20))
+            , x (String.fromFloat (getX label_end))
+            , y (String.fromFloat (getY label_end + 20))
             , Svg.Attributes.fill color_
             ]
             [ Html.text label_ ]
