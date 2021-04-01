@@ -428,7 +428,7 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     let
         barLength_ =
-            180 * 2.5
+            450
 
         model =
             { barLength = barLength_
@@ -543,6 +543,8 @@ contentsPane model =
                         , viewBox ("0 0 " ++ String.fromFloat model.viewWidth ++ " " ++ String.fromFloat model.viewHeight)
                         ]
                         [ drawBar barGeo.shape barGeo.weightShape
+                        , drawBarLengthRuler barGeo
+                        , drawBarHeightRuler barGeo
                         , if model.showGravityForceVector == True then
                             drawForceVector
                                 barGeo.centerOfGravityPoint
@@ -588,6 +590,9 @@ contentsPane model =
             )
         ]
 
+drawBarLengthRuler barGeo = div [] []
+drawBarHeightRuler barGeo = div [] []
+
 shiftY : Point -> Float -> Point 
 shiftY (x,y) n = (x, y + n)
 
@@ -629,12 +634,15 @@ drawBar shape weight =
 
 
 drawForceVector : Point -> Point -> String -> String -> Bool -> Svg msg
-drawForceVector start_ end_ color_ label_ flip =
+drawForceVector start_ end_ color_ label_ reverse_arrow =
     let
-        start = if flip == True then end_ else start_
-        end = if flip == True then start_ else end_
-
-        label_end = if flip == True then start else end
+        (start, end) =
+            if reverse_arrow == True 
+            then
+                (end_, start_)
+            else
+                (start_, end_)
+        label_end = end_
     in
         g []
         -- here we define the arrowhead that we will use when drawing force vectors
