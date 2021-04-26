@@ -49,9 +49,7 @@ import Svg.Attributes
         , y1
         , y2
         )
-import Orig_Main exposing (fulcrum)
-import Orig_Main exposing (viewWidth)
--- import Orig_Main exposing (barLength)
+import Svg.Attributes exposing (values)
 
 -- TYPES
 
@@ -249,22 +247,28 @@ derivePathOfExtraWeight origin_ barWidth_ extraWeightDistanceFromFulcrum_ extraW
 calculateBarGeometry : Model -> BarGeometry
 calculateBarGeometry model =
     let
+        centerOfGravityForceAmt =
+            model.barWeight + model.extraWeight
+        min_origin_y = centerOfGravityForceAmt * model.forceToLengthFactor
+
+        --fulcrumPoint = shiftY model.fulcrum min_origin_y
+        fulcrumPoint = (model.distanceOfBarPivotFromLeft, model.heightOfBarPivot)
+
+        viewHeight_ = getY fulcrumPoint + model.barLength
+        viewWidth_ = getX fulcrumPoint + (model.barLength * 1.5)
+
         originX =
-            getX model.fulcrum
+            getX fulcrumPoint
 
         originY =
-            getY model.fulcrum
+            getY fulcrumPoint
 
         extraWeightX =
             model.barLength - model.collarLength
 
         ( shape, weightShape ) =
-            derivePathOfBar model.fulcrum model.barLength model.barWidth model.collarLength model.extraWeight
-
-        centerOfGravityForceAmt =
-            model.barWeight + model.extraWeight
-
-
+            derivePathOfBar fulcrumPoint model.barLength model.barWidth model.collarLength model.extraWeight
+        
         midX =
             model.barLength / 2
 
@@ -274,9 +278,6 @@ calculateBarGeometry model =
         d1 = cogX
         d2 = model.barLength - d1
 
-        min_origin_y = centerOfGravityForceAmt * model.forceToLengthFactor
-
-        fulcrumPoint = model.fulcrum
         fulcrumGravityForceAmt = centerOfGravityForceAmt * (1 - ((d1/(d1+d2)) * (cos (degrees model.barAngle))^2))
         
         fulcrumGravityForcePoint = 
@@ -333,11 +334,11 @@ calculateBarGeometry model =
                     , fulcrumPoint = fulcrumPoint
                     , fulcrumGravityForceAmt = fulcrumGravityForceAmt
                     , fulcrumGravityForcePoint = fulcrumGravityForcePoint
-                    , viewHeight=600
-                    , viewWidth=600
+                    , viewHeight=viewHeight_
+                    , viewWidth=viewWidth_
                     }
     in
-    rotateBar model.barAngle model.fulcrum barGeo
+    rotateBar model.barAngle fulcrumPoint barGeo
 
 
 rotateBar : Float -> Point -> BarGeometry -> BarGeometry
@@ -387,6 +388,8 @@ mapToSvgCoordinates svgCoordinates barGeo =
         , viewWidth=barGeo.viewWidth
         }
 
+-- this type is here just to act as a bookmark in vscode
+type alias A_main = ()
 -- MAIN
 
 
@@ -395,7 +398,8 @@ main =
     Browser.element { init = init, subscriptions = subscriptions, update = update, view = view }
 
 
-
+-- this type is here just to act as a bookmark in vscode
+type alias A_Model = ()
 -- MODEL
 
 type alias Model =
@@ -405,15 +409,16 @@ type alias Model =
     , collarLength : Float
     , extraWeight : Float
     , barAngle : Float
-    -- , extraWeightDistanceFromFulcrum : Float
     , showNormalForceVector : Bool
     , showGravityForceVector : Bool
-    , fulcrum : Point
+    , heightOfBarPivot : Float
+    , distanceOfBarPivotFromLeft : Float
     , forceToLengthFactor : Float
     , barGeo : BarGeometry
     }
 
-
+-- this type is here just to act as a bookmark in vscode
+type alias A_Msg = ()
 type Msg
     = Angle Float
     | AngleStr String
@@ -425,19 +430,25 @@ type Msg
     | ExtraWeightChanged String
 
 
+-- this type is here just to act as a bookmark in vscode
+type alias A_init = ()
 -- INIT
+
+unitsPerInchFactor : Float
+unitsPerInchFactor = 450.0/86.0
 
 init : () -> ( Model, Cmd Msg )
 init _ =
     let
         model =
-            { barLength = 450
+            { barLength = 86.0 * unitsPerInchFactor
             , barWeight = 45
-            , barWidth = 5
+            , barWidth = 1.33 * unitsPerInchFactor
             , extraWeight = 0.0
             , barAngle = 0.0
-            , collarLength = 56
-            , fulcrum = ( 20, 100 )
+            , collarLength = 16.25 * unitsPerInchFactor
+            , heightOfBarPivot = 16.0 * unitsPerInchFactor
+            , distanceOfBarPivotFromLeft = 20
             , showNormalForceVector = False
             , showGravityForceVector = False
             , forceToLengthFactor = 2.0
@@ -446,7 +457,8 @@ init _ =
     in
     ( { model | barGeo = calculateBarGeometry model }, Cmd.none )
 
-
+-- this type is here just to act as a bookmark in vscode
+type alias A_update = ()
 -- UPDATE
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -473,17 +485,18 @@ update msg model =
     in
         ( { newModel | barGeo = calculateBarGeometry newModel }, Cmd.none )
 
--- SUBSCRIPTIONS
 
+-- this type is here just to act as a bookmark in vscode
+type alias A_subscriptions = ()
+-- SUBSCRIPTIONS
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.none
 
-
-
+-- this type is here just to act as a bookmark in vscode
+type alias A_view = ()
 -- VIEW
-
 
 view : Model -> Html Msg
 view model =
@@ -537,8 +550,7 @@ contentsPane model =
                         , viewBox ("0 0 " ++ String.fromFloat barGeo.viewWidth ++ " " ++ String.fromFloat barGeo.viewHeight)
                         ]
                         [ drawBar barGeo.shape barGeo.weightShape
-                        , drawBarLengthRuler barGeo
-                        , drawBarHeightRuler barGeo
+                        , drawFrame barGeo
                         , if model.showGravityForceVector == True then
                             drawForceVector
                                 barGeo.centerOfGravityPoint
@@ -584,8 +596,89 @@ contentsPane model =
             )
         ]
 
+squash: Float -> Float -> Float -> Float
+squash val ceiling threshold =
+    let
+        top = ceiling - threshold
+    in
+        if val < threshold then val else threshold + (top * tanh (val - threshold))
+
+sigmoid : Float -> Float
+sigmoid x = (1.0 / (1.0 + e^(-x)))
+
+tanh : Float -> Float
+tanh x = (e^(2*x) - 1)/(e^(2*x) + 1)
+
+formatDistance : Float -> String
+formatDistance d = 
+    let
+        feet = Basics.floor (d / 12.0)
+        inches = d - toFloat (12 * feet)
+
+    in
+        (String.fromInt feet) ++ " ft, " ++ (Round.round 2 inches) ++ " in"
+
+drawFrame : BarGeometry -> Svg msg
+drawFrame barGeo =
+    let
+        -- xc = barGeo
+        leftX = 0.0
+        leftY = barGeo.viewHeight
+        barEndHeight = (barGeo.viewHeight - (getY barGeo.handlePoint))/unitsPerInchFactor
+    in
+    g []
+    [
+        line [ x1 (String.fromFloat leftX)
+             , y1 (String.fromFloat leftY)
+             , x2 (String.fromFloat (leftX + barGeo.viewWidth))
+             , y2 (String.fromFloat leftY)
+             , stroke "red"
+            ]
+            []
+        -- , line [ x1 (String.fromFloat (getX barGeo.handlePoint))
+        --      , y1 (String.fromFloat (getY barGeo.handlePoint))
+        --      , x2 (String.fromFloat (leftX + barGeo.viewWidth - 65.0))
+        --      , y2 (String.fromFloat (getY barGeo.handlePoint))
+        --      , Svg.Attributes.strokeDasharray "14, 14"
+        --      , stroke "green"
+        --     ]
+        --     []
+        , line 
+            [ x1 (String.fromFloat (leftX + barGeo.viewWidth - 36.0))
+            , y1 (String.fromFloat (getY barGeo.handlePoint))
+            , x2 (String.fromFloat (leftX + barGeo.viewWidth - 36.0))
+            , y2 (String.fromFloat leftY)
+            , Svg.Attributes.strokeDasharray "14, 14"
+            , stroke "red"
+            ]
+            []
+        , line 
+            [ x1 (String.fromFloat (leftX + barGeo.viewWidth - 66.0))
+            , y1 (String.fromFloat (getY barGeo.handlePoint))
+            , x2 (String.fromFloat (leftX + barGeo.viewWidth - 6.0))
+            , y2 (String.fromFloat (getY barGeo.handlePoint))
+            , stroke "red"
+            ]
+            []            
+        , text_
+            [ fontFamily "sans-serif"
+            -- , fontSize "14, x 5, y 65"
+            , fontSize "14"
+            , x (String.fromFloat (leftX + barGeo.viewWidth - 70.0))
+            , y (String.fromFloat ((getY barGeo.handlePoint) - 3))
+            , Svg.Attributes.fill "black"
+            ]
+            [Html.text (formatDistance barEndHeight)]
+        , drawBarLengthRuler barGeo
+        , drawBarHeightRuler barGeo
+    ]
 drawBarLengthRuler barGeo = div [] []
-drawBarHeightRuler barGeo = div [] []
+
+drawBarHeightRuler barGeo = 
+    g []
+        [ 
+
+        ]
 
 inputPane : Model -> Element Msg
 inputPane model =
