@@ -231,15 +231,15 @@ derivePathOfExtraWeight origin_ barWidth_ extraWeightDistanceFromFulcrum_ extraW
 
         nudge =
             5
-
+        extraWeightDrawn = squash 50 0.75 extraWeight_
         ex =
             extraWeightDistanceFromFulcrum_
     in
     [ ( originX + ex, originY )
-    , ( originX + ex, originY + barWidth_ + extraWeight_ )
-    , ( originX + ex + nudge, originY + (barWidth_ + extraWeight_) )
-    , ( originX + ex + nudge, originY - (barWidth_ + extraWeight_) )
-    , ( originX + ex, originY - (barWidth_ + extraWeight_) )
+    , ( originX + ex, originY + barWidth_ + extraWeightDrawn )
+    , ( originX + ex + nudge, originY + (barWidth_ + extraWeightDrawn) )
+    , ( originX + ex + nudge, originY - (barWidth_ + extraWeightDrawn) )
+    , ( originX + ex, originY - (barWidth_ + extraWeightDrawn) )
     , ( originX + ex, originY )
     ]
 
@@ -447,7 +447,7 @@ init _ =
             , extraWeight = 0.0
             , barAngle = 0.0
             , collarLength = 16.25 * unitsPerInchFactor
-            , heightOfBarPivot = 16.0 * unitsPerInchFactor
+            , heightOfBarPivot = 12.0 * unitsPerInchFactor
             , distanceOfBarPivotFromLeft = 20
             , showNormalForceVector = False
             , showGravityForceVector = False
@@ -558,7 +558,7 @@ contentsPane model =
                                 "blue"
                                 (Round.round 2 barGeo.centerOfGravityForceAmt ++ " lbs")
                                 False
-
+                                barGeo
                         else
                             div [] []
                         , if model.showGravityForceVector == True then
@@ -568,6 +568,7 @@ contentsPane model =
                                 "red"
                                 (Round.round 2 barGeo.fulcrumGravityForceAmt ++ " lbs")
                                 True
+                                barGeo
 
                         else
                             div [] []
@@ -578,6 +579,7 @@ contentsPane model =
                                 "red"
                                 (Round.round 2 barGeo.handleGravityForceAmt ++ " lbs")
                                 True
+                                barGeo
 
                         else
                             div [] []
@@ -588,6 +590,7 @@ contentsPane model =
                                 "green" 
                                 (Round.round 2 barGeo.handleNormalForceAmt ++ " lbs")
                                 True
+                                barGeo
 
                         else
                             div [] []
@@ -597,12 +600,25 @@ contentsPane model =
         ]
 
 squash: Float -> Float -> Float -> Float
-squash val ceiling threshold =
+squash maxVal thresholdPercent val =
     let
-        top = ceiling - threshold
+        threshold = maxVal * thresholdPercent
+        overTheThreshold = maxVal - threshold
     in
-        if val < threshold then val else threshold + (top * tanh (val - threshold))
+        -- if val < threshold then val else threshold + (overTheThreshold * tanh (val - threshold))
+        if val < threshold 
+        then val 
+        else if val < maxVal then val else maxVal
 
+pointOnLine p0 p1 dt =
+    let
+        d = lineLen p0 p1
+        t = dt/d
+        tx = ((1 - t) * (getX p0)) + (t * (getX p1))
+        ty = ((1 - t) * (getY p0)) + (t * (getY p1))
+    in
+        (tx, ty)
+    
 sigmoid : Float -> Float
 sigmoid x = (1.0 / (1.0 + e^(-x)))
 
@@ -716,17 +732,34 @@ drawBar shape weight =
         , polygon [ Svg.Attributes.fill "black", stroke "black", points (path2svgPath weight) ] []
         ]
 
-
-drawForceVector : Point -> Point -> String -> String -> Bool -> Svg msg
-drawForceVector start_ end_ color_ label_ reverse_arrow =
+lineLen : Point -> Point -> Float
+lineLen p1 p2 =
     let
+        x1 = getX p1
+        y1 = getY p1
+        x2  = getX p2
+        y2 = getY p2
+    in
+        sqrt ((x2 - x1)^2 + (y2 - y1)^2)
+
+drawForceVector : Point -> Point -> String -> String -> Bool -> BarGeometry -> Svg msg
+drawForceVector start_ end_ color_ label_ reverse_arrow  barGeo =
+    let
+        len = lineLen start_ end_
+        maxLen = barGeo.viewHeight - getY start_
+        squashedLen = squash maxLen 0.75 len
+        pointEnd = pointOnLine start_ end_ squashedLen
+
         (start, end) =
             if reverse_arrow == True 
             then
-                (end_, start_)
+                (pointEnd, start_)
             else
-                (start_, end_)
-        label_end = end_
+                (start_, pointEnd)
+
+        label_end = pointEnd
+        -- final_label = label_ ++ " - (" ++ Round.round 2 (getY pointEnd) ++ ", " ++ Round.round 2 len ++ ", " ++ Round.round 2 squashedLen ++ ")"
+        final_label = label_ 
     in
         g []
         -- here we define the arrowhead that we will use when drawing force vectors
@@ -759,7 +792,7 @@ drawForceVector start_ end_ color_ label_ reverse_arrow =
             , y (String.fromFloat (getY label_end + 20))
             , Svg.Attributes.fill color_
             ]
-            [ Html.text label_ ]
+            [ Html.text final_label ]
         ]
 
 
