@@ -53,8 +53,8 @@ type Orientation
     | Horizontal
 
 
-drawInput : BoundedNumericValue msg -> Float -> Orientation -> Element msg
-drawInput boundedValue value_ orientation =
+drawInput : BoundedNumericValue msg -> Float -> Orientation -> Int -> Element msg
+drawInput boundedValue value_ orientation height_ =
     let
         -- label_ =
         --     case boundedValue of
@@ -75,7 +75,7 @@ drawInput boundedValue value_ orientation =
         { sliderHeight_, sliderWidth_, trackHeight_, trackWidth_ } =
             case orientation of
                 Vertical ->
-                    { sliderHeight_ = px 300, sliderWidth_ = px 30, trackHeight_ = fill, trackWidth_ = px 5 }
+                    { sliderHeight_ = px height_, sliderWidth_ = px 30, trackHeight_ = fill, trackWidth_ = px 5 }
 
                 Horizontal ->
                     { sliderHeight_ = px 30, sliderWidth_ = px 300, trackHeight_ = px 5, trackWidth_ = px 300 }
@@ -112,8 +112,8 @@ view model =
     Element.layout [ width fill, height fill ] <|
         column
             [ padding 50 ]
-            [ drawInput (IntValue { min = 0, max = 400, step = 1, message = AdjustValue1, label = "Integer Value 1: " }) model.value1 Horizontal
-            , drawInput (FloatValue { min = 0, max = 10, message = AdjustValue2, label = "Real Value 2: " }) model.value2 Horizontal
+            [ drawInput (IntValue { min = 0, max = 400, step = 1, message = AdjustValue1, label = "Integer Value 1: " }) model.value1 Horizontal 300
+            , drawInput (FloatValue { min = 0, max = 10, message = AdjustValue2, label = "Real Value 2: " }) model.value2 Horizontal 300
             , drawCheckbox "show normal force vector" Checkbox1Changed model.checkbox1
             ]
 

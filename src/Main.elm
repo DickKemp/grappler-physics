@@ -501,10 +501,14 @@ type alias A_view = ()
 view : Model -> Html Msg
 view model =
     El.layout
-        [ El.width El.fill, El.height El.fill, padding 5, spacing 5 ]
+        [ El.width El.fill, El.height El.fill, padding 5, spacing 5 
+        -- , El.explain Debug.todo 
+        ]
         (column [ bCol 1, El.width El.fill, El.height El.fill, padding 5, spacing 5 ]
             [ row [ bCol 2, El.width El.fill, El.height (fillPortion 10), padding 5, spacing 5 ]
-                [ topInputsPane model, rightInputsPane model ]
+                [ topInputsPane model
+                -- , rightInputsPane model 
+                ]
             , row [ bCol 9, alignBottom, El.width El.fill, El.height (fillPortion 1), padding 5, spacing 5 ]
                 [ el [] (El.text (("angle: " ++ Round.round 2 model.barAngle) ++ " degrees")) ]
             ]
@@ -513,7 +517,9 @@ view model =
 
 topInputsPane : Model -> Element Msg
 topInputsPane model =
-    column [ bCol 3, El.width (fillPortion 9), alignTop, padding 5, spacing 5, El.height El.fill ]
+    column [ bCol 3, El.width (fillPortion 9), alignTop, padding 5, spacing 5, El.height El.fill 
+            -- , El.explain Debug.todo 
+            ]
         [ topInputs model
         , contentsPane model 
         ]
@@ -526,19 +532,28 @@ rightInputsPane model =
             FloatValue { min = 0, max = 90, message = Angle, label = "" }
     in
     column [ bCol 4, El.width (fillPortion 1), padding 5, spacing 5, El.height El.fill ]
-        [ drawInput slider model.barAngle Vertical ]
+        [ drawInput slider model.barAngle Vertical 300]
 
 
 topInputs : Model -> Element Msg
 topInputs model =
-    row [ bCol 5, alignTop, padding 5, spacing 25, El.width El.fill ]
+    row [ bCol 5, alignTop, padding 5, spacing 25, El.width El.fill 
+        -- , El.explain Debug.todo        
+    ]
         [ inputPane model, checkboxesPane model ]
 
 
 contentsPane : Model -> Element Msg
 contentsPane model =
-    row [ bCol 6, El.height El.fill, El.width El.fill, alignBottom, padding 5, spacing 5 ]
-        [ el [ El.height El.fill, El.width El.fill, padding 5, spacing 5 ]
+    let
+        slider =
+            FloatValue { min = 0, max = 90, message = Angle, label = "" }
+    in
+    row [ bCol 6, El.height El.fill, alignBottom, padding 5, spacing 5
+        -- , El.explain Debug.todo
+         ]
+        [  
+          el [ El.height El.fill, El.width El.fill, padding 5, spacing 5 ]
             (El.html 
                 (   
                     let
@@ -597,18 +612,17 @@ contentsPane model =
                     ]
                 )
             )
+        , drawInput slider model.barAngle Vertical 300
         ]
 
 squash: Float -> Float -> Float -> Float
 squash maxVal thresholdPercent val =
     let
         threshold = maxVal * thresholdPercent
-        overTheThreshold = maxVal - threshold
     in
-        -- if val < threshold then val else threshold + (overTheThreshold * tanh (val - threshold))
-        if val < threshold 
-        then val 
-        else if val < maxVal then val else maxVal
+        if val < threshold then val 
+        else if val < maxVal then val 
+        else maxVal
 
 pointOnLine p0 p1 dt =
     let
