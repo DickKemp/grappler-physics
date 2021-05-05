@@ -2,7 +2,7 @@ module Main exposing (main)
 
 -- IMPORTS
 
-import BoundedNumericValue exposing (..)
+import BoundedNumericValue exposing (drawInput, BoundedNumericValue(..), Orientation(..), drawCheckbox)
 import Browser
 import Element as El
     exposing
