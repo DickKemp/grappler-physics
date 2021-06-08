@@ -50,6 +50,8 @@ import Svg.Attributes
         , y2
         )
 import Svg.Attributes exposing (values)
+import Svg.Attributes exposing (fontWeight)
+--import Basics.round
 
 -- TYPES
 
@@ -247,8 +249,9 @@ derivePathOfExtraWeight origin_ barWidth_ extraWeightDistanceFromFulcrum_ extraW
 calculateBarGeometry : Model -> BarGeometry
 calculateBarGeometry model =
     let
+        extraWeight = Maybe.withDefault 0.0 (String.toFloat model.extraWeightStr)
         centerOfGravityForceAmt =
-            model.barWeight + model.extraWeight
+            model.barWeight + extraWeight
         min_origin_y = centerOfGravityForceAmt * model.forceToLengthFactor
 
         --fulcrumPoint = shiftY model.fulcrum min_origin_y
@@ -267,13 +270,13 @@ calculateBarGeometry model =
             model.barLength - model.collarLength
 
         ( shape, weightShape ) =
-            derivePathOfBar fulcrumPoint model.barLength model.barWidth model.collarLength model.extraWeight
+            derivePathOfBar fulcrumPoint model.barLength model.barWidth model.collarLength extraWeight
         
         midX =
             model.barLength / 2
 
         cogX =
-            ((midX * model.barWeight) + (extraWeightX * model.extraWeight)) / (model.barWeight + model.extraWeight)
+            ((midX * model.barWeight) + (extraWeightX * extraWeight)) / (model.barWeight + extraWeight)
 
         d1 = cogX
         d2 = model.barLength - d1
@@ -407,7 +410,6 @@ type alias Model =
     , barWeight : Float
     , barWidth : Float
     , collarLength : Float
-    , extraWeight : Float
     , barAngle : Float
     , showNormalForceVector : Bool
     , showGravityForceVector : Bool
@@ -415,6 +417,8 @@ type alias Model =
     , distanceOfBarPivotFromLeft : Float
     , forceToLengthFactor : Float
     , barGeo : BarGeometry
+    , barSize : BarSize
+    , extraWeightStr : String
     }
 
 -- this type is here just to act as a bookmark in vscode
@@ -428,7 +432,10 @@ type Msg
     | BarLengthChanged String
     | BarWeightChanged String
     | ExtraWeightChanged String
+    | BarSizeChanged BarSize
 
+type BarSize = 
+    BigBar | LittleBar
 
 -- this type is here just to act as a bookmark in vscode
 type alias A_init = ()
@@ -444,15 +451,16 @@ init _ =
             { barLength = 86.0 * unitsPerInchFactor
             , barWeight = 45
             , barWidth = 1.33 * unitsPerInchFactor
-            , extraWeight = 0.0
             , barAngle = 0.0
             , collarLength = 16.25 * unitsPerInchFactor
             , heightOfBarPivot = 12.0 * unitsPerInchFactor
             , distanceOfBarPivotFromLeft = 20
             , showNormalForceVector = False
-            , showGravityForceVector = False
-            , forceToLengthFactor = 2.0
+            , showGravityForceVector = True
+            , forceToLengthFactor = 5.0
             , barGeo = makeEmptyBarGeometry
+            , barSize = BigBar
+            , extraWeightStr = "0.0"
             }
     in
     ( { model | barGeo = calculateBarGeometry model }, Cmd.none )
@@ -473,7 +481,7 @@ update msg model =
                 BarWeightChanged weight ->
                     { model | barWeight = Maybe.withDefault 45.0 (String.toFloat weight) }
                 ExtraWeightChanged extraWeight_ ->
-                    { model | extraWeight = Maybe.withDefault 0.0 (String.toFloat extraWeight_) }
+                    { model | extraWeightStr = extraWeight_ }
                 NormalForceOptionChanged b ->
                     { model | showNormalForceVector = b }
                 GravityForceOptionChanged b ->
@@ -482,6 +490,18 @@ update msg model =
                     { model | barLength = stringToFloat lengthStr }
                 ForceToLenFactorChanged factorStr ->
                     { model | forceToLengthFactor = stringToFloat factorStr }
+                BarSizeChanged BigBar ->
+                    { model | barSize = BigBar
+                    , barWeight =  45.0
+                    , barLength = 86.0 * unitsPerInchFactor 
+                    , collarLength = 16.25 * unitsPerInchFactor
+                    }
+                BarSizeChanged LittleBar ->
+                    { model | barSize = LittleBar
+                    , barWeight =  15.0 
+                    , barLength = 64.0 * unitsPerInchFactor 
+                    , collarLength = 6.0 * unitsPerInchFactor
+                    }
     in
         ( { newModel | barGeo = calculateBarGeometry newModel }, Cmd.none )
 
@@ -498,27 +518,40 @@ subscriptions _ =
 type alias A_view = ()
 -- VIEW
 
+-- debugView : Attribute msg
+debugView = 
+--    El.explain Debug.todo 
+    El.pointer
+-- debugView = el [] (El.html (div [] []))
+-- debugView = None
+
 view : Model -> Html Msg
 view model =
     El.layout
         [ El.width El.fill, El.height El.fill, padding 5, spacing 5 
-        -- , El.explain Debug.todo 
+         , debugView
         ]
-        (column [ bCol 1, El.width El.fill, El.height El.fill, padding 5, spacing 5 ]
-            [ row [ bCol 2, El.width El.fill, El.height (fillPortion 10), padding 5, spacing 5 ]
+        (column [ bCol 1, El.width El.fill
+        --, El.height El.fill
+        , padding 5, spacing 5 , debugView]
+            [ row [ 
+                bCol 2, El.width El.fill
+                -- , El.height (fillPortion 10)
+                , padding 5, spacing 5 , debugView]
                 [ topInputsPane model
                 -- , rightInputsPane model 
                 ]
-            , row [ bCol 9, alignBottom, El.width El.fill, El.height (fillPortion 1), padding 5, spacing 5 ]
+            -- , row [ bCol 9, alignBottom, El.width El.fill, El.height (fillPortion 1), padding 0, spacing 0 , debugView]
+               , row [ bCol 9, alignBottom, El.width El.fill, padding 0, spacing 0 , debugView]
                 [ el [] (El.text (("angle: " ++ Round.round 2 model.barAngle) ++ " degrees")) ]
             ]
         )
 
-
+     
 topInputsPane : Model -> Element Msg
 topInputsPane model =
     column [ bCol 3, El.width (fillPortion 9), alignTop, padding 5, spacing 5, El.height El.fill 
-            -- , El.explain Debug.todo 
+            , debugView 
             ]
         [ topInputs model
         , contentsPane model 
@@ -531,16 +564,59 @@ rightInputsPane model =
         slider =
             FloatValue { min = 0, max = 90, message = Angle, label = "" }
     in
-    column [ bCol 4, El.width (fillPortion 1), padding 5, spacing 5, El.height El.fill ]
+    column [ bCol 4, El.width (fillPortion 1), padding 5, spacing 5, El.height El.fill , debugView]
         [ drawInput slider model.barAngle Vertical 300]
 
 
 topInputs : Model -> Element Msg
 topInputs model =
-    row [ bCol 5, alignTop, padding 5, spacing 25, El.width El.fill 
-        -- , El.explain Debug.todo        
+    row [ bCol 5, alignTop, padding 5, spacing 25
+        -- , El.width El.fill 
+        , debugView        
     ]
-        [ inputPane model, checkboxesPane model ]
+        [ inputPane model
+        -- , checkboxesPane model 
+            , column [] [
+            drawCheckbox "show normal force vector" NormalForceOptionChanged model.showNormalForceVector
+            , drawCheckbox "show gravity force vector" GravityForceOptionChanged model.showGravityForceVector
+        ]
+        ]
+
+inputPane : Model -> Element Msg
+inputPane model =
+            column [ bCol 10
+            -- , El.width El.fill
+            , padding 5, spacing 5, El.height El.fill, debugView ]
+            [Input.radio
+                [ padding 5
+                , spacing 5
+                ]
+                { onChange = BarSizeChanged
+                , selected = Just model.barSize
+                , label = Input.labelAbove [] <| (El.text "Bar")
+                , options =
+                    [ Input.option BigBar (El.text "45 lb")
+                    , Input.option LittleBar (El.text "15 lb")
+                    ]
+                }
+            , inputText "Extra Weight : " model.extraWeightStr ExtraWeightChanged
+            ]
+
+inputText : String -> String -> (String -> msg) -> Element msg
+inputText txt f m = 
+ Input.text [El.width (El.px 80), padding 1, spacing 1]
+        { onChange = m
+        , text = f
+        , placeholder = Just <| Input.placeholder [] (El.text "Type here")
+        , label = Input.labelLeft [] (El.text txt)
+        }
+
+checkboxesPane : Model -> Element Msg
+checkboxesPane model =
+    column [ bCol 8, padding 5, spacing 5, alignRight, debugView ]
+        [ drawCheckbox "show normal force vector" NormalForceOptionChanged model.showNormalForceVector
+        , drawCheckbox "show gravity force vector" GravityForceOptionChanged model.showGravityForceVector
+        ]
 
 
 contentsPane : Model -> Element Msg
@@ -549,22 +625,30 @@ contentsPane model =
         slider =
             FloatValue { min = 0, max = 90, message = Angle, label = "" }
     in
-    row [ bCol 6, El.height El.fill, alignBottom, padding 5, spacing 5
-        -- , El.explain Debug.todo
+    row [ bCol 6, El.height El.fill
+        , alignTop
+        --, alignBottom
+        , padding 0, spacing 0
+        , debugView
          ]
         [  
-          el [ El.height El.fill, El.width El.fill, padding 5, spacing 5 ]
+          el [ El.height El.fill, El.width El.fill, padding 0, spacing 0 ]
             (El.html 
                 (   
                     let
                         svgCoordinates = {viewHeight=model.barGeo.viewHeight, viewWidth=model.barGeo.viewWidth}
                         barGeo = (mapToSvgCoordinates svgCoordinates model.barGeo)
                     in
-                    svg [ Svg.Attributes.width "600"
-                        , Svg.Attributes.height "600"
+                    svg [ Svg.Attributes.width (String.fromFloat barGeo.viewWidth)
+                        , Svg.Attributes.height (String.fromFloat barGeo.viewHeight)
+                        , Svg.Attributes.preserveAspectRatio "xMinYMin meet"
                         , viewBox ("0 0 " ++ String.fromFloat barGeo.viewWidth ++ " " ++ String.fromFloat barGeo.viewHeight)
                         ]
-                        [ drawBar barGeo.shape barGeo.weightShape
+                        [ rect [  Svg.Attributes.height (String.fromFloat barGeo.viewHeight)
+                                , Svg.Attributes.width (String.fromFloat barGeo.viewWidth)
+                                , Svg.Attributes.fill "lightgreen"] 
+                                []
+                        , drawBar barGeo.shape barGeo.weightShape
                         , drawFrame barGeo
                         , if model.showGravityForceVector == True then
                             drawForceVector
@@ -587,7 +671,7 @@ contentsPane model =
 
                         else
                             div [] []
-                        , if model.showGravityForceVector == True && model.showNormalForceVector == False then
+                        , if model.showGravityForceVector == True then
                             drawForceVector
                                 (shiftY barGeo.handlePoint model.barWidth)
                                 barGeo.handleGravityForcePoint
@@ -602,7 +686,7 @@ contentsPane model =
                             drawForceVector
                                 (shiftY barGeo.handlePoint model.barWidth)
                                 barGeo.handleNormalForcePoint
-                                "green" 
+                                "black" 
                                 (Round.round 2 barGeo.handleNormalForceAmt ++ " lbs")
                                 True
                                 barGeo
@@ -612,7 +696,7 @@ contentsPane model =
                     ]
                 )
             )
-        , drawInput slider model.barAngle Vertical 300
+        , drawInput slider model.barAngle Vertical (Basics.round model.barGeo.viewHeight)
         ]
 
 squash: Float -> Float -> Float -> Float
@@ -624,6 +708,7 @@ squash maxVal thresholdPercent val =
         else if val < maxVal then val 
         else maxVal
 
+pointOnLine : Point -> Point -> Float -> (Float, Float)
 pointOnLine p0 p1 dt =
     let
         d = lineLen p0 p1
@@ -665,14 +750,6 @@ drawFrame barGeo =
              , stroke "red"
             ]
             []
-        -- , line [ x1 (String.fromFloat (getX barGeo.handlePoint))
-        --      , y1 (String.fromFloat (getY barGeo.handlePoint))
-        --      , x2 (String.fromFloat (leftX + barGeo.viewWidth - 65.0))
-        --      , y2 (String.fromFloat (getY barGeo.handlePoint))
-        --      , Svg.Attributes.strokeDasharray "14, 14"
-        --      , stroke "green"
-        --     ]
-        --     []
         , line 
             [ x1 (String.fromFloat (leftX + barGeo.viewWidth - 36.0))
             , y1 (String.fromFloat (getY barGeo.handlePoint))
@@ -699,50 +776,12 @@ drawFrame barGeo =
             , Svg.Attributes.fill "black"
             ]
             [Html.text (formatDistance barEndHeight)]
-        , drawBarLengthRuler barGeo
-        , drawBarHeightRuler barGeo
     ]
-drawBarLengthRuler barGeo = div [] []
-
-drawBarHeightRuler barGeo = 
-    g []
-        [ 
-
-        ]
-
-inputPane : Model -> Element Msg
-inputPane model =
-    column
-        [ bCol 7, padding 5, spacing 5, El.width (El.fill |> El.maximum 200 |> El.minimum 100) ]
-        [ column [ bCol 21, El.width El.fill, padding 5, spacing 5, El.height El.fill ]
-            [ Input.text []
-                { onChange = BarWeightChanged
-                , text = String.fromFloat model.barWeight
-                , placeholder = Just <| Input.placeholder [] <| El.text "Type here"
-                , label = Input.labelLeft [] <| El.text "Bar Weight"
-                }
-            , Input.text []
-                { onChange = ExtraWeightChanged
-                , text = String.fromFloat model.extraWeight
-                , placeholder = Just <| Input.placeholder [] <| El.text "Type here"
-                , label = Input.labelLeft [] <| El.text "Extra Weight"
-                }
-            ]
-        ]
-
-
-checkboxesPane : Model -> Element Msg
-checkboxesPane model =
-    column [ bCol 8, padding 5, spacing 5, alignRight ]
-        [ drawCheckbox "show normal force vector" NormalForceOptionChanged model.showNormalForceVector
-        , drawCheckbox "show gravity force vector" GravityForceOptionChanged model.showGravityForceVector
-        ]
-
 
 drawBar : Path -> Path -> Svg msg
 drawBar shape weight =
     g []
-        [ polygon [ Svg.Attributes.fill "None", stroke "black", points (path2svgPath shape) ] []
+        [ polygon [ Svg.Attributes.fill "white", stroke "black", points (path2svgPath shape) ] []
         , polygon [ Svg.Attributes.fill "black", stroke "black", points (path2svgPath weight) ] []
         ]
 
@@ -760,7 +799,7 @@ drawForceVector : Point -> Point -> String -> String -> Bool -> BarGeometry -> S
 drawForceVector start_ end_ color_ label_ reverse_arrow  barGeo =
     let
         len = lineLen start_ end_
-        maxLen = barGeo.viewHeight - getY start_
+        maxLen = barGeo.viewHeight - getY start_ - 25
         squashedLen = squash maxLen 0.75 len
         pointEnd = pointOnLine start_ end_ squashedLen
 
@@ -800,8 +839,10 @@ drawForceVector start_ end_ color_ label_ reverse_arrow  barGeo =
             ]
             []
         , text_
-            [ fontFamily "sans-serif"
-            , fontSize "14, x 5, y 65"
+            [ -- fontFamily "sans-serif"
+              fontFamily "consolas"
+            , fontWeight "bold"
+            , fontSize "14"
             , x (String.fromFloat (getX label_end))
             , y (String.fromFloat (getY label_end + 20))
             , Svg.Attributes.fill color_
