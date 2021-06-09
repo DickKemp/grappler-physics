@@ -257,8 +257,8 @@ calculateBarGeometry model =
         --fulcrumPoint = shiftY model.fulcrum min_origin_y
         fulcrumPoint = (model.distanceOfBarPivotFromLeft, model.heightOfBarPivot)
 
-        viewHeight_ = getY fulcrumPoint + model.barLength
-        viewWidth_ = getX fulcrumPoint + (model.barLength * 1.5)
+        viewHeight_ = getY fulcrumPoint + model.barLength + 20
+        viewWidth_ = getX fulcrumPoint + (model.barLength * 1.5) + 5
 
         originX =
             getX fulcrumPoint
@@ -771,7 +771,7 @@ drawFrame barGeo =
             [ fontFamily "sans-serif"
             -- , fontSize "14, x 5, y 65"
             , fontSize "14"
-            , x (String.fromFloat (leftX + barGeo.viewWidth - 70.0))
+            , x (String.fromFloat (leftX + barGeo.viewWidth - 80.0))
             , y (String.fromFloat ((getY barGeo.handlePoint) - 3))
             , Svg.Attributes.fill "black"
             ]
