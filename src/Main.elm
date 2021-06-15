@@ -49,7 +49,6 @@ import Svg.Attributes
         , y1
         , y2
         )
-import Svg.Attributes exposing (values)
 import Svg.Attributes exposing (fontWeight)
 --import Basics.round
 
@@ -252,7 +251,7 @@ calculateBarGeometry model =
         extraWeight = Maybe.withDefault 0.0 (String.toFloat model.extraWeightStr)
         centerOfGravityForceAmt =
             model.barWeight + extraWeight
-        min_origin_y = centerOfGravityForceAmt * model.forceToLengthFactor
+        -- min_origin_y = centerOfGravityForceAmt * model.forceToLengthFactor
 
         --fulcrumPoint = shiftY model.fulcrum min_origin_y
         fulcrumPoint = (model.distanceOfBarPivotFromLeft, model.heightOfBarPivot)
@@ -518,10 +517,10 @@ subscriptions _ =
 type alias A_view = ()
 -- VIEW
 
--- debugView : Attribute msg
+--debugView : Attribute msg
 debugView = 
---    El.explain Debug.todo 
-    El.pointer
+-- El.explain Debug.todo 
+   El.pointer
 -- debugView = el [] (El.html (div [] []))
 -- debugView = None
 
@@ -558,7 +557,7 @@ topInputsPane model =
         ]
 
 
-rightInputsPane : Model -> Element Msg
+{- rightInputsPane : Model -> Element Msg
 rightInputsPane model =
     let
         slider =
@@ -566,7 +565,7 @@ rightInputsPane model =
     in
     column [ bCol 4, El.width (fillPortion 1), padding 5, spacing 5, El.height El.fill , debugView]
         [ drawInput slider model.barAngle Vertical 300]
-
+ -}
 
 topInputs : Model -> Element Msg
 topInputs model =
@@ -611,13 +610,13 @@ inputText txt f m =
         , label = Input.labelLeft [] (El.text txt)
         }
 
-checkboxesPane : Model -> Element Msg
+{- checkboxesPane : Model -> Element Msg
 checkboxesPane model =
     column [ bCol 8, padding 5, spacing 5, alignRight, debugView ]
         [ drawCheckbox "show normal force vector" NormalForceOptionChanged model.showNormalForceVector
         , drawCheckbox "show gravity force vector" GravityForceOptionChanged model.showGravityForceVector
         ]
-
+ -}
 
 contentsPane : Model -> Element Msg
 contentsPane model =
@@ -717,12 +716,12 @@ pointOnLine p0 p1 dt =
         ty = ((1 - t) * (getY p0)) + (t * (getY p1))
     in
         (tx, ty)
-    
+    {- 
 sigmoid : Float -> Float
 sigmoid x = (1.0 / (1.0 + e^(-x)))
 
 tanh : Float -> Float
-tanh x = (e^(2*x) - 1)/(e^(2*x) + 1)
+tanh x = (e^(2*x) - 1)/(e^(2*x) + 1) -}
 
 formatDistance : Float -> String
 formatDistance d = 

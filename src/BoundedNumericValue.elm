@@ -4,7 +4,6 @@ import Browser
 import Element exposing (Element, behindContent, centerX, centerY, column, el, fill, height, padding, px, rgb255, text, width)
 import Element.Background as Background
 import Element.Border as Border
--- import Element.Font as Font
 import Element.Input as Input
 import Html exposing (Html)
 
@@ -56,21 +55,14 @@ type Orientation
 drawInput : BoundedNumericValue msg -> Float -> Orientation -> Int -> Element msg
 drawInput boundedValue value_ orientation height_ =
     let
-        -- label_ =
-        --     case boundedValue of
-        --         IntValue { min, max, step, message, label } ->
-        --             text (label ++ String.fromFloat value_)
-
-        --         FloatValue { min, max, message, label } ->
-        --             text (label ++ String.fromFloat value_)
-
+        
         { min_, max_, step_, message_ } =
             case boundedValue of
                 IntValue { min, max, step, message, label } ->
-                    { min_ = toFloat <| min, max_ = toFloat <| max, step_ = Just (toFloat <| step), message_ = message }
+                    { min_ = toFloat <| min, max_ = toFloat <| max, step_ = Just (toFloat <| step), message_ = message, label_= label }
 
                 FloatValue { min, max, message, label } ->
-                    { min_ = min, max_ = max, step_ = Nothing, message_ = message }
+                    { min_ = min, max_ = max, step_ = Nothing, message_ = message, label_= label }
 
         { sliderHeight_, sliderWidth_, trackHeight_, trackWidth_ } =
             case orientation of
