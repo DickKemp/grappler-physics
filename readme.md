@@ -1,5 +1,8 @@
-grappler-physics
+# grappler physics
 
+Uses Elm to calculate and animate a simple 2D visualization of the forces in play when exercising with the "grappler" (as it's called at my gym!)
 
-https://user-images.githubusercontent.com/32676598/198438256-576814bf-bdbe-4549-b718-567f3df754f4.mp4
+Demo of this in action:
+
+<img src="/grappler4.gif"/>
 
